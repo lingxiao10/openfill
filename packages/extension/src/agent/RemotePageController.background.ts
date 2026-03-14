@@ -85,7 +85,7 @@ export function handlePageControlMessage(
 			sendResponse(result)
 		})
 		.catch((error) => {
-			console.error(PREFIX, error)
+			console.log(PREFIX, error)
 			sendResponse({
 				success: false,
 				error: error instanceof Error ? error.message : String(error),

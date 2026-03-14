@@ -401,12 +401,7 @@ export function flatTreeToString(flatTree: FlatDomTree, includeAttributes?: stri
 				return
 			}
 
-			if (
-				node.parent &&
-				node.parent.type === 'element' &&
-				node.parent.isVisible &&
-				node.parent.isTopElement
-			) {
+			if (node.isVisible) {
 				result.push(`${depthStr}${node.text ?? ''}`)
 			}
 		}

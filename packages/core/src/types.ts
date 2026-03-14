@@ -248,6 +248,14 @@ export interface UserTakeoverEvent {
 }
 
 /**
+ * User message event - a follow-up message from user in the same session
+ */
+export interface UserMessageEvent {
+	type: 'user_message'
+	message: string
+}
+
+/**
  * Retry event - LLM call is being retried
  */
 export interface RetryEvent {
@@ -273,6 +281,7 @@ export type HistoricalEvent =
 	| AgentStepEvent
 	| ObservationEvent
 	| UserTakeoverEvent
+	| UserMessageEvent
 	| RetryEvent
 	| AgentErrorEvent
 

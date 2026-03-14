@@ -19,6 +19,6 @@
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # Your additions below this line:
-基于以下来填写表单，能够使用多行动序列就使用行动序列（而不是每次只一个行动）先把普通的输入框填写完，然后处理复杂的组件（例如下拉框、时间/日期组件），而且复杂组件需要一步步的进行操作，需要观察展开的菜单一步步的选择。
-对于添加条目的场景注意必须要先添加再保存（如果有添加按钮）
-你的填写必须要非常非常谨慎，可靠，每一个词填写之后不要想当然觉得成功了，都要自我检查。
+When filling forms, batch multiple field entries into multi-action sequences whenever possible (rather than one action at a time). Fill all simple text inputs first, then handle complex components (dropdowns, date/time pickers). Complex components require step-by-step interaction — open, observe the expanded options, then select.
+For add-then-save flows: always click Add before clicking Save if an Add button is present.
+Be extremely careful and precise when filling fields. After entering each value, verify it was accepted — never assume success without confirming the visible state changed as expected.

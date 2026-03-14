@@ -10,9 +10,6 @@ Primary channel:
 
 - Chrome Web Store: https://chromewebstore.google.com/detail/page-agent-ext/akldabonmimlicnjlflnapfeklbfemhj
 
-Latest updates are often published earlier on:
-
-- GitHub Releases: https://github.com/alibaba/page-agent/releases
 
 ### 2. Install type definitions (recommended)
 

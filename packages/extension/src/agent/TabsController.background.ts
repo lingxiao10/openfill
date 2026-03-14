@@ -69,7 +69,7 @@ export function handleTabControlMessage(
 					sendResponse({ success: true, groupId })
 				})
 				.catch((error) => {
-					console.error(PREFIX, 'Failed to create tab group', error)
+					console.log(PREFIX, 'Failed to create tab group', error)
 					sendResponse({ error: error instanceof Error ? error.message : String(error) })
 				})
 			return true // async response
@@ -131,7 +131,18 @@ export function handleTabControlMessage(
 			debug('get_all_tabs')
 			chrome.tabs
 				.query({})
-				.then((tabs) => {
+				.then(async (tabs) => {
+					// Collect unique group IDs (exclude ungrouped: -1)
+					const groupIds = [...new Set(tabs.map((t) => t.groupId).filter((id) => id >= 0))]
+					const groupNames: Record<number, string> = {}
+					await Promise.all(
+						groupIds.map((id) =>
+							chrome.tabGroups
+								.get(id)
+								.then((g) => { groupNames[id] = g.title || '' })
+								.catch(() => {})
+						)
+					)
 					sendResponse({
 						success: true,
 						tabs: tabs.map((t) => ({
@@ -139,6 +150,8 @@ export function handleTabControlMessage(
 							url: t.url || t.pendingUrl || '',
 							title: t.title || '',
 							active: t.active,
+							groupId: t.groupId >= 0 ? t.groupId : undefined,
+							groupName: t.groupId >= 0 ? (groupNames[t.groupId] ?? '') : undefined,
 						})),
 					})
 				})

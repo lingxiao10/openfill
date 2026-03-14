@@ -1,15 +1,29 @@
 import type { AgentStepEvent, HistoricalEvent } from '@page-agent/core'
 
+import { getStartupLog } from './startupLog'
+
 /**
  * Format agent history into a human-readable log string and trigger a file download.
  */
 export function downloadAgentLogs(task: string, history: HistoricalEvent[]): void {
 	const lines: string[] = []
 
-	lines.push('=== Page Agent Log ===')
+	lines.push('=== OpenFill Log ===')
 	lines.push(`Task: ${task}`)
 	lines.push(`Generated: ${new Date().toLocaleString()}`)
 	lines.push('')
+
+	// Startup / init errors
+	const startupLog = getStartupLog()
+	if (startupLog.length > 0) {
+		lines.push('=== Startup Errors ===')
+		for (const entry of startupLog) {
+			lines.push(`[${entry.time}] [${entry.type}] ${entry.message}`)
+			if (entry.stack) lines.push(indent(entry.stack, '  '))
+			if (entry.detail) lines.push(indent(JSON.stringify(entry.detail, null, 2), '  '))
+			lines.push('')
+		}
+	}
 
 	for (const event of history) {
 		if (event.type === 'step') {
@@ -85,7 +99,7 @@ export function downloadAgentLogs(task: string, history: HistoricalEvent[]): voi
 	const url = URL.createObjectURL(blob)
 	const a = document.createElement('a')
 	a.href = url
-	a.download = `page-agent-${Date.now()}.log`
+	a.download = `openfill-${Date.now()}.log`
 	a.click()
 	URL.revokeObjectURL(url)
 }

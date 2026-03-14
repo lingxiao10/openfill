@@ -23,6 +23,37 @@
   - 命名 key（Enter/Tab/Escape 等）用 `NAMED_KEY_CODE` + `NAMED_KEY_CODE_STR` 映射正确的 keyCode/code
   - `dispatchCharKeyEvent`: key/code/keyCode/shiftKey/charCode + isTrusted defineProperty 欺骗
 
+## 文档与脚本 (2026-03)
+- README.md（英文）和 README_zh.md（中文）在项目根目录
+- Mac/Linux 对应所有 .bat 的 .sh 脚本已创建（start/rebuild-and-start/build-ext 等8个）
+- system_prompt_shared.md、system_prompt_subtask.md、system_prompt_additions.md 底部中文已全部改为英文
+
+## 环境信息注入 (2026-03)
+- `getEnvInfo()` 在 `packages/core/src/utils/index.ts`，返回 "OS / Browser" 字符串
+- 在 `#assembleUserPrompt` 的 `<step_info>` 块注入 `Environment: <OS> / <Browser>`
+
+## 多会话架构（2026-03）
+- `SessionManager.ts`：管理多个并行 ChatSession，每个有独立 MultiPageAgent
+- `useSessionManager.ts`：React hook 替换原 `useAgent`
+- `SessionTabs.tsx`：会话标签栏 UI（+号新建，×关闭）
+- 在同一会话内继续发消息：`execute(task, { continueSession: true })` 不清空 history，push `user_message` 事件
+- `UserMessageEvent` 在 history 中显示为右对齐蓝色气泡
+- `upsertSession`：按 sessionId 更新 DB 记录（每次任务完成时）
+- `ConfigPanel` 仍从 `useAgent.ts` import `ExtConfig`/`LanguagePreference` 类型（保持不变）
+- `utils/Trans.ts`：内联 `{en, zh}` 格式，Trans.t({en,zh})，自动检测浏览器语言，localStorage 存偏好
+- `MultiSessionNotice.tsx`：首次打开弹窗，localStorage 记录是否已展示，国际化
+
+## 豆包网络搜索工具（2026-03）
+- 核心客户端：`packages/core/src/utils/doubao/DoubaoClient.ts`（静态方法）, `DoubaoConfig.ts`（setApiKey/getApiKey）, `DoubaoTypes.ts`
+- `DoubaoClient` 和 `DoubaoConfig` 从 `@page-agent/core` 导出（已在 PageAgentCore.ts 中 re-export）
+- `packages/core/src/config/SecretConfig.ts`：browser-compatible stub（始终返回 {}，Node测试用 packages/extension/config/SecretConfig.ts）
+- Ark API base: `https://ark.cn-beijing.volces.com/api/v3`，默认模型 `doubao-seed-1-8-251228`
+- `SessionManager.ts`：`buildSearchTool` 调 `DoubaoConfig.setApiKey(apiKey)` 后调 `DoubaoClient.search(query, 3, endpoint as DoubaoModel)`
+- 配置字段（`AdvancedConfig`）：`doubaoApiKey`、`doubaoSearchEndpoint`（model名）、`searchEnabled`（默认true）
+- `MultiPageAgent` 已修复：`customTools` = 外部工具 merge tab工具（之前外部customTools被覆盖）
+- ConfigPanel 高级设置中新增搜索配置 UI（开关 + API Key + 接入点ID + 购买链接）
+- 购买链接: `https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement?LLM=%7B%7D&advancedActiveKey=model`
+
 ## Bug: TabsController 无法追踪 target=_blank 打开的新标签页（已修复）
 - **现象**：AI 点击 `target=_blank` 链接后，新 tab 不在 browser_state 里，AI 误判点击失败反复重点
 - **根因**：`tabChangeHandler` 条件是 `tab.groupId === this.tabGroupId`，初始时 `tabGroupId=null`，Chrome 新标签 `groupId=-1`，永远不匹配

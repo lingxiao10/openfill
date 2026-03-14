@@ -1,13 +1,11 @@
 import type { AgentStatus } from '@page-agent/core'
 import { Motion } from 'ai-motion'
-import { BookOpen, Globe } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import { siGithub } from 'simple-icons'
 
 import { TypingAnimation } from '@/components/ui/typing-animation'
 import { cn } from '@/lib/utils'
+import { Trans } from '@/utils/Trans'
 
-// Status dot indicator
 export function StatusDot({ status }: { status: AgentStatus }) {
 	const colorClass = {
 		idle: 'bg-muted-foreground',
@@ -17,10 +15,10 @@ export function StatusDot({ status }: { status: AgentStatus }) {
 	}[status]
 
 	const label = {
-		idle: 'Ready',
-		running: 'Running',
-		completed: 'Done',
-		error: 'Error',
+		idle: Trans.t('status_ready'),
+		running: Trans.t('status_running'),
+		completed: Trans.t('status_done'),
+		error: Trans.t('status_error'),
 	}[status]
 
 	return (
@@ -34,10 +32,9 @@ export function StatusDot({ status }: { status: AgentStatus }) {
 }
 
 export function Logo({ className }: { className?: string }) {
-	return <img src="/assets/page-agent-256.webp" alt="Page Agent" className={cn('', className)} />
+	return <img src="/assets/openfill-logo.svg" alt="Logo" className={cn('', className)} />
 }
 
-// Full-screen ai-motion glow overlay, shown only while running
 export function MotionOverlay({ active }: { active: boolean }) {
 	const containerRef = useRef<HTMLDivElement>(null)
 	const motionRef = useRef<Motion | null>(null)
@@ -58,7 +55,6 @@ export function MotionOverlay({ active }: { active: boolean }) {
 		} catch (e) {
 			console.warn('[MotionOverlay] Motion unavailable:', e)
 		}
-
 		return () => {
 			motionRef.current?.dispose()
 			motionRef.current = null
@@ -68,7 +64,6 @@ export function MotionOverlay({ active }: { active: boolean }) {
 	useEffect(() => {
 		const motion = motionRef.current
 		if (!motion) return
-
 		let disposed = false
 		if (active) {
 			motion.start()
@@ -76,9 +71,7 @@ export function MotionOverlay({ active }: { active: boolean }) {
 		} else {
 			motion.fadeOut().then(() => !disposed && motion.pause())
 		}
-		return () => {
-			disposed = true
-		}
+		return () => { disposed = true }
 	}, [active])
 
 	return (
@@ -90,8 +83,14 @@ export function MotionOverlay({ active }: { active: boolean }) {
 	)
 }
 
-// Empty state with logo and breathing glow
 export function EmptyState() {
+	const words = [
+		Trans.t('empty_word_1'),
+		Trans.t('empty_word_2'),
+		Trans.t('empty_word_3'),
+		Trans.t('empty_word_4'),
+	]
+
 	return (
 		<div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
 			<div className="relative select-none pointer-events-none">
@@ -103,49 +102,13 @@ export function EmptyState() {
 				<h2 className="text-base font-medium text-foreground mb-1">Page Agent Ext</h2>
 				<TypingAnimation
 					className="text-sm text-muted-foreground"
-					words={[
-						'Enter a task to automate this page',
-						'Execute multi-page tasks',
-						'Call this extension from your web page',
-						'Use this extension in your own agents',
-					]}
+					words={words}
 					cursorStyle="underscore"
 					loop
 					typeSpeed={20}
 					deleteSpeed={10}
 					pauseDelay={3000}
 				/>
-			</div>
-			<div className="flex items-center gap-3 mt-1 text-muted-foreground">
-				<a
-					href="https://github.com/alibaba/page-agent"
-					target="_blank"
-					rel="noopener noreferrer"
-					className="hover:text-foreground transition-colors"
-					title="GitHub"
-				>
-					<svg role="img" viewBox="0 0 24 24" className="size-4 fill-current">
-						<path d={siGithub.path} />
-					</svg>
-				</a>
-				<a
-					href="https://alibaba.github.io/page-agent/docs/features/chrome-extension"
-					target="_blank"
-					rel="noopener noreferrer"
-					className="hover:text-foreground transition-colors"
-					title="Documentation"
-				>
-					<BookOpen className="size-4" />
-				</a>
-				<a
-					href="https://alibaba.github.io/page-agent"
-					target="_blank"
-					rel="noopener noreferrer"
-					className="hover:text-foreground transition-colors"
-					title="Website"
-				>
-					<Globe className="size-4" />
-				</a>
 			</div>
 		</div>
 	)

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="white" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded square -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <!-- Subtle top shine -->
+  <rect width="64" height="34" rx="14" fill="url(#shine)"/>
+  <!-- Eyedropper/fill icon, rotated to point bottom-right -->
+  <g transform="rotate(-45 32 32)">
+    <!-- Cap (rounded handle top) -->
+    <rect x="26" y="8" width="12" height="10" rx="6" fill="white"/>
+    <!-- Tube body -->
+    <rect x="28" y="16" width="8" height="22" fill="white"/>
+    <!-- Tip (triangle) -->
+    <path d="M28 38 L36 38 L32 46 Z" fill="white"/>
+  </g>
+  <!-- Drop below the tip -->
+  <path d="M46 44 Q50.5 48 46 53 Q41.5 48 46 44Z" fill="white" fill-opacity="0.8"/>
+</svg>

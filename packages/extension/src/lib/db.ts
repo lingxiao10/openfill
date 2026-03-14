@@ -47,6 +47,17 @@ export async function saveSession(
 	return record
 }
 
+/** Upsert a session by its id — creates if not exists, updates otherwise */
+export async function upsertSession(record: SessionRecord): Promise<void> {
+	const db = await getDB()
+	const existing = await db.get('sessions', record.id)
+	if (existing) {
+		await db.put('sessions', { ...existing, ...record })
+	} else {
+		await db.put('sessions', record)
+	}
+}
+
 /** List sessions, newest first */
 export async function listSessions(): Promise<SessionRecord[]> {
 	const db = await getDB()

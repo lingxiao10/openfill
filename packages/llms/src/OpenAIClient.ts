@@ -143,7 +143,7 @@ export class OpenAIClient implements LLMClient {
 				)
 			default:
 				// Log warning but continue — some providers use non-standard values
-				console.warn(`[PageAgent] Unexpected finish_reason: ${choice.finish_reason}`)
+				console.warn(`[OpenFill] Unexpected finish_reason: ${choice.finish_reason}`)
 				break
 		}
 

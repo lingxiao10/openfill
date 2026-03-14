@@ -13,7 +13,7 @@ export function initPageController() {
 			return (response as { tabId: number | null }).tabId
 		})
 		.catch((error) => {
-			console.error('[RemotePageController.ContentScript]: Failed to get my tab id', error)
+			console.log('[RemotePageController.ContentScript]: Failed to get my tab id', error)
 			return null
 		})
 
@@ -25,31 +25,48 @@ export function initPageController() {
 	}
 
 	intervalID = window.setInterval(async () => {
-		const agentHeartbeat = (await chrome.storage.local.get('agentHeartbeat')).agentHeartbeat
-		const now = Date.now()
-		const agentInTouch = typeof agentHeartbeat === 'number' && now - agentHeartbeat < 2_000
-
-		const isAgentRunning = (await chrome.storage.local.get('isAgentRunning')).isAgentRunning
-		const currentTabId = (await chrome.storage.local.get('currentTabId')).currentTabId
-
-		const shouldShowMask = isAgentRunning && agentInTouch && currentTabId === (await myTabIdPromise)
-
-		if (shouldShowMask) {
-			const pc = getPC()
-			pc.initMask()
-			await pc.showMask()
-		} else {
-			// await getPC().hideMask()
-			if (pageController) {
-				pageController.hideMask()
-				pageController.cleanUpHighlights()
-			}
+		try {
+			// Accessing chrome.runtime.id throws synchronously when context is invalidated
+			void chrome.runtime.id
+		} catch {
+			window.clearInterval(intervalID!)
+			intervalID = null
+			return
 		}
 
-		if (!isAgentRunning && agentInTouch) {
-			if (pageController) {
-				pageController.dispose()
-				pageController = null
+		try {
+			const agentHeartbeat = (await chrome.storage.local.get('agentHeartbeat')).agentHeartbeat
+			const now = Date.now()
+			const agentInTouch = typeof agentHeartbeat === 'number' && now - agentHeartbeat < 2_000
+
+			const isAgentRunning = (await chrome.storage.local.get('isAgentRunning')).isAgentRunning
+			const currentTabId = (await chrome.storage.local.get('currentTabId')).currentTabId
+
+			const shouldShowMask = isAgentRunning && agentInTouch && currentTabId === (await myTabIdPromise)
+
+			if (shouldShowMask) {
+				const pc = getPC()
+				pc.initMask()
+				await pc.showMask()
+			} else {
+				// await getPC().hideMask()
+				if (pageController) {
+					pageController.hideMask()
+					pageController.cleanUpHighlights()
+				}
+			}
+
+			if (!isAgentRunning && agentInTouch) {
+				if (pageController) {
+					pageController.dispose()
+					pageController = null
+				}
+			}
+		} catch (error) {
+			// Extension context invalidated (e.g. after reload) — stop the interval
+			if (intervalID !== null) {
+				window.clearInterval(intervalID)
+				intervalID = null
 			}
 		}
 	}, 500)

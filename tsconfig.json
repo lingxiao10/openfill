@@ -3,6 +3,8 @@
 {
     "extends": "./tsconfig.base.json",
     "references": [
+        { "path": "./packages/core" },
+        { "path": "./packages/extension" },
         { "path": "./packages/page-controller" },
         { "path": "./packages/ui" },
         { "path": "./packages/llms" },

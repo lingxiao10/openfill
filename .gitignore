@@ -9,13 +9,10 @@ lerna-debug.log*
 
 node_modules
 dist
-# /lib
 dist-ssr
 *.local
 
 # Editor directories and files
-# .vscode/*
-# !.vscode/extensions.json
 .idea
 .DS_Store
 *.suo
@@ -29,11 +26,22 @@ dist-ssr
 .env
 .env.*
 
-# extension
+# extension build output
 .output
 .wxt
 
-# AI
+# Secrets & private keys (never commit)
+packages/extension/config/extension-private.key
+packages/extension/config/secret_json.json
+packages/core/src/utils/doubao/secret_json.json
+
+# Test files
+test-search.ts
+packages/core/src/utils/doubao/test.ts
+packages/extension/src/utils/DoubaoSearch.test.ts
+packages/extension/tsconfig.test.json
+
+# AI tooling
 .agent
 .claude
 .cursor

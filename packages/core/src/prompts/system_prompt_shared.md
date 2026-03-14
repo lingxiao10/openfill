@@ -42,5 +42,7 @@ The `send_keys` tool dispatches a full realistic keyboard sequence (modifier-dow
 - **Rich text editors** (contenteditable): prefer `input_text` which uses `execCommand` internally. Use `send_keys` only for structural actions (Enter for new line, Ctrl+B for bold if supported).
 
 
-不要使用###这样的来加入到标题中，这样很容易让人理解为AI的输入。输入方面尽量更模拟人的输入。
+Do not use ### headings in output — this can be mistaken for AI-generated markup. Keep text entries close to natural human typing style.
+When you finish a task, you may close any tabs you opened that are no longer needed (only close tabs you opened yourself).
+Apply common sense: if asked to do something, first check whether it has already been done — do not repeat completed work.
 </keyboard_shortcuts>

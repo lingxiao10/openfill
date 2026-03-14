@@ -10,7 +10,7 @@ function sendMessage(message: {
 	payload?: any
 }): Promise<any> {
 	return chrome.runtime.sendMessage(message).catch((error) => {
-		console.error(PREFIX, message.action, error)
+		console.log(PREFIX, message.action, error)
 		return null
 	})
 }
@@ -27,12 +27,16 @@ export class TabsController extends EventTarget {
 	private initialTabId: number | null = null
 	private tabGroupId: number | null = null
 	private task: string = ''
+	private sessionName: string = ''
+	private sessionId: string = ''
 	private windowId: number | null = null
 
-	async init(task: string, includeInitialTab: boolean = true) {
-		debug('init', task, includeInitialTab)
+	async init(task: string, sessionName: string, sessionId: string, includeInitialTab: boolean = true) {
+		debug('init', task, sessionName, sessionId, includeInitialTab)
 
 		this.task = task
+		this.sessionName = sessionName
+		this.sessionId = sessionId
 		this.tabs = []
 		this.currentTabId = null
 		this.tabGroupId = null
@@ -168,7 +172,7 @@ export class TabsController extends EventTarget {
 				payload: {
 					groupId: this.tabGroupId,
 					properties: {
-						title: `PageAgent(${this.task})`,
+						title: `${this.sessionName} (${this.sessionId.slice(0, 6)})`,
 						color: randomColor(),
 						collapsed: false,
 					},
@@ -190,9 +194,23 @@ export class TabsController extends EventTarget {
 	async switchToTab(tabId: number): Promise<string> {
 		debug('switchToTab', tabId)
 
-		const targetTab = this.tabs.find((t) => t.id === tabId)
-		if (!targetTab) {
-			throw new Error(`Tab ID ${tabId} not found in tab list.`)
+		if (!this.tabs.find((t) => t.id === tabId)) {
+			// Tab exists in browser but not tracked yet — fetch info and register it
+			const info = await sendMessage({
+				type: 'TAB_CONTROL',
+				action: 'get_tab_info',
+				payload: { tabId },
+			})
+			if (info?.error) {
+				throw new Error(`Tab ID ${tabId} not found in tab list.`)
+			}
+			this.tabs.push({
+				id: tabId,
+				isInitial: false,
+				url: info.url,
+				title: info.title,
+				status: info.status,
+			})
 		}
 
 		await this.updateCurrentTabId(tabId)
@@ -203,9 +221,8 @@ export class TabsController extends EventTarget {
 	async closeTab(tabId: number): Promise<string> {
 		debug('closeTab', tabId)
 
-		const targetTab = this.tabs.find((t) => t.id === tabId)
-		if (!targetTab) {
-			throw new Error(`Tab ID ${tabId} not found in tab list.`)
+		if (!this.tabs.find((t) => t.id === tabId)) {
+			this.tabs.push({ id: tabId, isInitial: false })
 		}
 		const result = await sendMessage({
 			type: 'TAB_CONTROL',
@@ -233,10 +250,10 @@ export class TabsController extends EventTarget {
 	async reloadTab(tabId: number): Promise<string> {
 		debug('reloadTab', tabId)
 
-		const targetTab = this.tabs.find((t) => t.id === tabId)
-		if (!targetTab) {
-			throw new Error(`Tab ID ${tabId} not found in tab list.`)
+		if (!this.tabs.find((t) => t.id === tabId)) {
+			this.tabs.push({ id: tabId, isInitial: false })
 		}
+		const targetTab = this.tabs.find((t) => t.id === tabId)!
 
 		const result = await sendMessage({
 			type: 'TAB_CONTROL',
@@ -286,20 +303,49 @@ export class TabsController extends EventTarget {
 	async summarizeTabs(): Promise<string> {
 		// Fetch all tabs currently open in the browser
 		const result = await sendMessage({ type: 'TAB_CONTROL', action: 'get_all_tabs' })
-		const allTabs: { id: number; url: string; title: string; active: boolean }[] =
-			result?.tabs ?? []
+		const allTabs: {
+			id: number
+			url: string
+			title: string
+			active: boolean
+			groupId?: number
+			groupName?: string
+		}[] = result?.tabs ?? []
+
+		const agentTabIds = new Set(this.tabs.map((t) => t.id))
+		const shortId = this.sessionId ? this.sessionId.slice(0, 6) : ''
+		const sessionLabel = this.sessionName ? `${this.sessionName}${shortId ? ` (${shortId})` : ''}` : ''
 
 		if (allTabs.length === 0) {
-			return 'Open Tabs: none'
+			return sessionLabel ? `Current Session: ${sessionLabel}\nOpen Tabs: none` : 'Open Tabs: none'
 		}
 
-		const lines = ['Open Tabs:']
-		for (const tab of allTabs) {
+		// Ordering:
+		// 1. Ungrouped tabs NOT opened by this agent (user's own tabs)
+		// 2. Tabs opened by this agent (current session)
+		// 3. All other grouped tabs (other sessions / user groups)
+		const userUngrouped = allTabs.filter((t) => !t.groupId && !agentTabIds.has(t.id))
+		const sessionTabs = allTabs.filter((t) => agentTabIds.has(t.id))
+		const otherGrouped = allTabs.filter((t) => t.groupId && !agentTabIds.has(t.id))
+		const sorted = [...userUngrouped, ...sessionTabs, ...otherGrouped]
+
+		const lines: string[] = []
+		if (sessionLabel) lines.push(`Current Session: ${sessionLabel}`)
+		lines.push('Open Tabs:')
+
+		for (const tab of sorted) {
 			const isCurrent = tab.id === this.currentTabId
-			const marker = isCurrent ? ' ← current' : ''
+			const isSessionTab = agentTabIds.has(tab.id)
+
+			const tags: string[] = []
+			if (isCurrent) tags.push('current')
+			if (isSessionTab) tags.push('this-session')
+			if (tab.groupName) tags.push(`group:${tab.groupName}`)
+
+			const suffix = tags.length ? ` [${tags.join(', ')}]` : ''
 			const title = tab.title || '(no title)'
 			const url = tab.url || '(no url)'
-			lines.push(`- [${tab.id}] ${title} | ${url}${marker}`)
+			lines.push(`- [${tab.id}] ${title} | ${url}${suffix}`)
 		}
 		return lines.join('\n')
 	}

@@ -5,6 +5,7 @@ import type {
 	HistoricalEvent,
 	ObservationEvent,
 	RetryEvent,
+	UserMessageEvent,
 } from '@page-agent/core'
 import {
 	CheckCircle,
@@ -24,6 +25,7 @@ import {
 import { Fragment, useState } from 'react'
 
 import { cn } from '@/lib/utils'
+import { Trans } from '@/utils/Trans'
 
 // ─── Task text (expandable + copyable) ───────────────────────────────────────
 
@@ -54,7 +56,7 @@ export function TaskText({ task }: { task: string }) {
 					onClick={handleCopy}
 					className="shrink-0 text-[9px] text-muted-foreground hover:text-foreground border rounded px-1 py-px cursor-pointer transition-colors"
 				>
-					{copied ? '已复制' : '复制'}
+					{copied ? Trans.t('copied') : Trans.t('copy')}
 				</button>
 			</div>
 			{isLong && (
@@ -63,7 +65,9 @@ export function TaskText({ task }: { task: string }) {
 					onClick={() => setExpanded(!expanded)}
 					className="mt-0.5 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
 				>
-					{expanded ? '收起' : `展开全部 (${task.length} 字符)`}
+					{expanded
+						? Trans.t('collapse')
+						: Trans.t('expand', { n: String(task.length) })}
 				</button>
 			)}
 		</div>
@@ -100,7 +104,7 @@ function ResultCard({
 						success ? 'text-green-600 dark:text-green-400' : 'text-destructive'
 					)}
 				>
-					Result: {success ? 'Success' : 'Failed'}
+					{success ? Trans.t('result_success') : Trans.t('result_failed')}
 				</span>
 			</div>
 			<p className="text-xs text-[11px] text-muted-foreground pl-5 whitespace-pre-wrap">{text}</p>
@@ -254,10 +258,10 @@ function PageStateSection({ rawRequest }: { rawRequest?: unknown }) {
 				<div className="flex items-center gap-1.5">
 					<Layers className="size-3 text-muted-foreground" />
 					<span className="text-[11px] font-semibold text-foreground/80">
-						页面元素
+						{Trans.t('page_elements')}
 					</span>
 					<span className="text-[10px] text-muted-foreground bg-muted rounded px-1">
-						{elements.length} 个
+						{Trans.t('element_count', { n: String(elements.length) })}
 					</span>
 				</div>
 				<ChevronDown
@@ -333,7 +337,9 @@ function ActionParams({ name, input }: { name: string; input: unknown }) {
 	if (name === 'click_element_by_index') {
 		return (
 			<div className="flex items-center gap-1.5 flex-wrap">
-				<span className="text-[10px] text-muted-foreground">点击元素</span>
+				<span className="text-[10px] text-muted-foreground">
+					{Trans.t('click_element')}
+				</span>
 				<span className="font-mono text-[11px] bg-blue-500/15 text-blue-400 rounded px-1.5 py-px">
 					[{String(data.index)}]
 				</span>
@@ -344,11 +350,13 @@ function ActionParams({ name, input }: { name: string; input: unknown }) {
 	if (name === 'input') {
 		return (
 			<div className="flex items-start gap-1.5 flex-wrap">
-				<span className="text-[10px] text-muted-foreground shrink-0">输入到元素</span>
+				<span className="text-[10px] text-muted-foreground shrink-0">
+					{Trans.t('input_to_element')}
+				</span>
 				<span className="font-mono text-[11px] bg-blue-500/15 text-blue-400 rounded px-1.5 py-px">
 					[{String(data.index)}]
 				</span>
-				<span className="text-[10px] text-muted-foreground shrink-0">：</span>
+				<span className="text-[10px] text-muted-foreground shrink-0">:</span>
 				<span className="font-mono text-[11px] bg-green-500/10 text-green-400 rounded px-1.5 py-px max-w-full break-all">
 					"{String(data.text)}"
 				</span>
@@ -357,16 +365,16 @@ function ActionParams({ name, input }: { name: string; input: unknown }) {
 	}
 
 	if (name === 'scroll') {
-		const dir = data.down ? '↓ 向下' : '↑ 向上'
+		const dir = data.down ? Trans.t('scroll_down') : Trans.t('scroll_up')
 		const amount = data.pixels
 			? `${data.pixels}px`
 			: data.numPages
-				? `${data.numPages} 页`
+				? Trans.t('scroll_pages', { n: String(data.numPages) })
 				: ''
 		const target =
 			data.index !== undefined ? (
 				<span className="font-mono text-[11px] bg-blue-500/15 text-blue-400 rounded px-1.5 py-px ml-1">
-					元素 [{String(data.index)}]
+					{Trans.t('element_ref', { n: String(data.index) })}
 				</span>
 			) : null
 		return (
@@ -380,7 +388,7 @@ function ActionParams({ name, input }: { name: string; input: unknown }) {
 	}
 
 	if (name === 'scroll_horizontally') {
-		const dir = data.right ? '→ 向右' : '← 向左'
+		const dir = data.right ? Trans.t('scroll_right') : Trans.t('scroll_left')
 		return (
 			<div className="text-[10px] text-muted-foreground">
 				{dir} {data.pixels ? `${data.pixels}px` : ''}
@@ -497,9 +505,11 @@ function ActionBlock({
 					>
 						<div className="flex items-center gap-1.5">
 							<Workflow className="size-3 text-purple-400 shrink-0" />
-							<span className="text-[10px] text-purple-400 font-medium">子任务详情</span>
+							<span className="text-[10px] text-purple-400 font-medium">
+								{Trans.t('subtask_details')}
+							</span>
 							<span className="text-[9px] text-muted-foreground bg-muted rounded px-1">
-								{action.subHistory.filter((e) => e.type === 'step').length} 步
+								{Trans.t('steps', { n: String(action.subHistory.filter((e) => e.type === 'step').length) })}
 							</span>
 						</div>
 						<ChevronDown
@@ -539,7 +549,7 @@ function ActionsSection({
 	return (
 		<div className="mb-2">
 			<div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-				Actions
+				{Trans.t('actions')}
 			</div>
 			<div className="flex flex-col gap-1.5">
 				{visible.map((action, i) => (
@@ -565,7 +575,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 			}}
 			className="text-[9px] text-muted-foreground hover:text-foreground transition-colors border px-1 rounded shrink-0 cursor-pointer backdrop-blur-xs"
 		>
-			{copied ? 'Copied!' : label}
+			{copied ? Trans.t('copied') : label}
 		</button>
 	)
 }
@@ -612,7 +622,7 @@ function RawSection({ rawRequest, rawResponse }: { rawRequest?: unknown; rawResp
 								: 'text-muted-foreground border-transparent hover:text-foreground'
 						)}
 					>
-						Raw Request
+						{Trans.t('raw_request')}
 					</button>
 				)}
 				{rawResponse != null && (
@@ -626,16 +636,23 @@ function RawSection({ rawRequest, rawResponse }: { rawRequest?: unknown; rawResp
 								: 'text-muted-foreground border-transparent hover:text-foreground'
 						)}
 					>
-						Raw Response
+						{Trans.t('raw_response')}
 					</button>
 				)}
 			</div>
 			{content != null && (
 				<div className="relative mt-1.5">
 					<div className="absolute top-1 right-1 flex gap-1">
-						{systemPrompt && <CopyButton text={systemPrompt} label="Copy System" />}
-						{userPrompt && <CopyButton text={userPrompt} label="Copy User" />}
-						<CopyButton text={JSON.stringify(content, null, 4)} label="Copy" />
+						{systemPrompt && (
+							<CopyButton text={systemPrompt} label={Trans.t('copy_system')} />
+						)}
+						{userPrompt && (
+							<CopyButton text={userPrompt} label={Trans.t('copy_user')} />
+						)}
+						<CopyButton
+							text={JSON.stringify(content, null, 4)}
+							label={Trans.t('copy')}
+						/>
 					</div>
 					<pre className="p-2 pt-5 text-[10px] text-foreground/70 bg-muted rounded overflow-x-auto max-h-60 overflow-y-auto">
 						{JSON.stringify(content, null, 4)}
@@ -654,7 +671,7 @@ function StepCard({ event }: { event: AgentStepEvent }) {
 			{/* Header */}
 			<div className="flex items-center justify-between mb-2">
 				<span className="text-[11px] font-semibold text-foreground tracking-wide">
-					Step #{event.stepIndex! + 1}
+					{Trans.t('step_n', { n: String(event.stepIndex! + 1) })}
 				</span>
 				{event.usage && (
 					<span className="text-[9px] text-muted-foreground/60 font-mono">
@@ -686,6 +703,18 @@ function ObservationCard({ event }: { event: ObservationEvent }) {
 			<div className="flex items-start gap-2">
 				<Eye className="size-3.5 text-green-500 shrink-0 mt-0.5" />
 				<span className="text-[11px] text-muted-foreground">{event.content}</span>
+			</div>
+		</div>
+	)
+}
+
+function UserMessageCard({ event }: { event: UserMessageEvent }) {
+	return (
+		<div className="flex justify-end">
+			<div className="max-w-[85%] rounded-lg rounded-br-sm bg-primary px-3 py-2">
+				<p className="text-[11px] text-primary-foreground whitespace-pre-wrap break-words">
+					{event.message}
+				</p>
 			</div>
 		</div>
 	)
@@ -792,6 +821,7 @@ export function EventCard({ event }: { event: HistoricalEvent }) {
 		return <StepCard event={event as AgentStepEvent} />
 	}
 
+	if (event.type === 'user_message') return <UserMessageCard event={event as UserMessageEvent} />
 	if (event.type === 'observation') return <ObservationCard event={event as ObservationEvent} />
 	if (event.type === 'retry') return <RetryCard event={event as RetryEvent} />
 	if (event.type === 'error') return <ErrorCard event={event as AgentErrorEvent} />
@@ -803,14 +833,14 @@ export function ActivityCard({ activity }: { activity: AgentActivity }) {
 	const getActivityInfo = () => {
 		switch (activity.type) {
 			case 'thinking':
-				return { text: 'Thinking...', color: 'text-blue-500' }
+				return { text: Trans.t('activity_thinking'), color: 'text-blue-500' }
 			case 'executing':
-				return { text: `Executing ${activity.tool}...`, color: 'text-amber-500' }
+				return { text: Trans.t('activity_executing', { tool: activity.tool }), color: 'text-amber-500' }
 			case 'executed':
-				return { text: `Done: ${activity.tool}`, color: 'text-green-500' }
+				return { text: Trans.t('activity_done', { tool: activity.tool }), color: 'text-green-500' }
 			case 'retrying':
 				return {
-					text: `Retrying (${activity.attempt}/${activity.maxAttempts})...`,
+					text: Trans.t('activity_retrying', { attempt: String(activity.attempt), max: String(activity.maxAttempts) }),
 					color: 'text-amber-500',
 				}
 			case 'error':

@@ -1,5 +1,6 @@
 import { type AgentConfig, PageAgentCore } from '@page-agent/core'
 
+import { Trans } from '@/utils/Trans'
 import { RemotePageController } from './RemotePageController'
 import { TabsController } from './TabsController'
 import SYSTEM_PROMPT from './system_prompt.md?raw'
@@ -17,7 +18,7 @@ function detectLanguage(): 'en-US' | 'zh-CN' {
  * - can be used from a side panel or a content script
  */
 export class MultiPageAgent extends PageAgentCore {
-	constructor(config: AgentConfig & { includeInitialTab?: boolean }) {
+	constructor(config: AgentConfig & { includeInitialTab?: boolean; sessionName?: string; sessionId?: string }) {
 		// multi page controller
 		const tabsController = new TabsController()
 		const pageController = new RemotePageController(tabsController)
@@ -34,6 +35,10 @@ export class MultiPageAgent extends PageAgentCore {
 		// include initial tab for controlling
 		const includeInitialTab = config.includeInitialTab ?? true
 
+		// session identity (for tab group naming and agent self-awareness)
+		const sessionName = config.sessionName ?? Trans.t('session_name')
+		const sessionId = config.sessionId ?? crypto.randomUUID()
+
 		/**
 		 * When the agent is in side-panel and user closed the side-panel.
 		 * There is no chance for isAgentRunning to be set false.
@@ -46,11 +51,12 @@ export class MultiPageAgent extends PageAgentCore {
 		super({
 			...config,
 			pageController: pageController as any,
-			customTools: customTools,
+			// Merge external customTools (e.g. web_search) with tab tools
+			customTools: { ...(config.customTools ?? {}), ...customTools },
 			customSystemPrompt: systemPrompt,
 
 			onBeforeTask: async (agent) => {
-				await tabsController.init(agent.task, includeInitialTab)
+				await tabsController.init(agent.task, sessionName, sessionId, includeInitialTab)
 
 				heartBeatInterval = window.setInterval(() => {
 					chrome.storage.local.set({

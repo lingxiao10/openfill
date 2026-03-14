@@ -21,6 +21,14 @@ export interface AdvancedConfig {
 	maxSteps?: number
 	systemInstruction?: string
 	experimentalLlmsTxt?: boolean
+	/** Show the download-logs button in the UI. Default: false */
+	showDownloadLogs?: boolean
+	/** Volcengine (Doubao) API key for the web search tool */
+	doubaoApiKey?: string
+	/** Doubao search model / endpoint ID (must support web_search tool) */
+	doubaoSearchEndpoint?: string
+	/** Enable the web_search tool. Default: true when doubaoApiKey + doubaoSearchEndpoint are set */
+	searchEnabled?: boolean
 }
 
 export interface ExtConfig extends LLMConfig, AdvancedConfig {
@@ -134,6 +142,10 @@ export function useAgent(): UseAgentResult {
 			maxSteps,
 			systemInstruction,
 			experimentalLlmsTxt,
+			showDownloadLogs,
+			doubaoApiKey,
+			doubaoSearchEndpoint,
+			searchEnabled,
 			...llmConfig
 		}: ExtConfig) => {
 			await chrome.storage.local.set({ llmConfig })
@@ -142,7 +154,15 @@ export function useAgent(): UseAgentResult {
 			} else {
 				await chrome.storage.local.remove('language')
 			}
-			const advancedConfig: AdvancedConfig = { maxSteps, systemInstruction, experimentalLlmsTxt }
+			const advancedConfig: AdvancedConfig = {
+				maxSteps,
+				systemInstruction,
+				experimentalLlmsTxt,
+				showDownloadLogs,
+				doubaoApiKey,
+				doubaoSearchEndpoint,
+				searchEnabled,
+			}
 			await chrome.storage.local.set({ advancedConfig })
 			setConfig({ ...llmConfig, ...advancedConfig, language })
 		},

@@ -94,6 +94,36 @@ export async function fetchLlmsTxt(url: string): Promise<string | null> {
 	return result
 }
 
+/** Detect browser name from userAgent */
+function detectBrowser(ua: string): string {
+	if (/Edg\//.test(ua)) return 'Edge'
+	if (/OPR\/|Opera/.test(ua)) return 'Opera'
+	if (/Firefox\//.test(ua)) return 'Firefox'
+	if (/Chrome\//.test(ua)) return 'Chrome'
+	if (/Safari\//.test(ua)) return 'Safari'
+	return 'Unknown Browser'
+}
+
+/** Detect OS name from userAgent / platform */
+function detectOS(ua: string): string {
+	if (/Windows/.test(ua)) return 'Windows'
+	if (/Android/.test(ua)) return 'Android'
+	if (/iPhone|iPad/.test(ua)) return 'iOS'
+	if (/Mac OS X/.test(ua)) return 'macOS'
+	if (/Linux/.test(ua)) return 'Linux'
+	return 'Unknown OS'
+}
+
+/**
+ * Get a one-line environment summary: OS, browser.
+ * Safe to call in any environment (falls back gracefully outside browser).
+ */
+export function getEnvInfo(): string {
+	if (typeof navigator === 'undefined') return ''
+	const ua = navigator.userAgent
+	return `${detectOS(ua)} / ${detectBrowser(ua)}`
+}
+
 /**
  * Simple assertion function that throws an error if the condition is falsy
  * @param condition - The condition to assert

@@ -23,10 +23,13 @@ import type {
 	MacroToolInput,
 	MacroToolResult,
 } from './types'
-import { assert, fetchLlmsTxt, normalizeResponse, uid, waitFor } from './utils'
+import { assert, fetchLlmsTxt, getEnvInfo, normalizeResponse, uid, waitFor } from './utils'
 
 export { tool, type PageAgentTool } from './tools'
 export type * from './types'
+export { DoubaoClient } from './utils/doubao/DoubaoClient'
+export { DoubaoConfig, DOUBAO_DEFAULT_MODEL, DOUBAO_MODELS, DOUBAO_BASE_URL } from './utils/doubao/DoubaoConfig'
+export type { DoubaoModel, ChatOptions, DoubaoTextResult, DoubaoExtraData } from './utils/doubao/DoubaoTypes'
 
 export type PageAgentCoreConfig = AgentConfig & {
 	pageController: PageController
@@ -206,6 +209,11 @@ export class PageAgentCore extends EventTarget {
 		this.#observations.push(content)
 	}
 
+	/** AbortSignal that fires when stop() is called */
+	get abortSignal(): AbortSignal {
+		return this.#abortController.signal
+	}
+
 	/** Stop the current task. Agent remains reusable. */
 	stop() {
 		this.pageController.cleanUpHighlights()
@@ -213,7 +221,7 @@ export class PageAgentCore extends EventTarget {
 		this.#abortController.abort()
 	}
 
-	async execute(task: string): Promise<ExecutionResult> {
+	async execute(task: string, options?: { continueSession?: boolean }): Promise<ExecutionResult> {
 		if (this.disposed) throw new Error('PageAgent has been disposed. Create a new instance.')
 		if (!task) throw new Error('Task is required')
 		this.task = task
@@ -241,7 +249,12 @@ export class PageAgentCore extends EventTarget {
 			this.#abortController = new AbortController()
 		}
 
-		this.history = []
+		if (options?.continueSession) {
+			// Append user message to existing history, preserving context
+			this.history.push({ type: 'user_message', message: task })
+		} else {
+			this.history = []
+		}
 		this.#setStatus('running')
 		this.#emitHistoryChange()
 		this.#observations = []
@@ -623,6 +636,8 @@ export class PageAgentCore extends EventTarget {
 		prompt += '<step_info>\n'
 		prompt += `Step ${stepCount + 1} of ${this.config.maxSteps} max possible steps\n`
 		prompt += `Current time: ${new Date().toLocaleString()}\n`
+		const envInfo = getEnvInfo()
+		if (envInfo) prompt += `Environment: ${envInfo}\n`
 		prompt += '</step_info>\n'
 		prompt += '</agent_state>\n\n'
 
@@ -646,6 +661,8 @@ export class PageAgentCore extends EventTarget {
 				prompt += `<sys>${event.content}</sys>\n`
 			} else if (event.type === 'user_takeover') {
 				prompt += `<sys>User took over control and made changes to the page</sys>\n`
+			} else if (event.type === 'user_message') {
+				prompt += `<user_message>${event.message}</user_message>\n`
 			} else if (event.type === 'error') {
 				// Error events are mainly for panel rendering, not included in LLM context
 				// to avoid polluting the agent's reasoning with transient errors

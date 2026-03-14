@@ -10,15 +10,14 @@ export function parseLLMConfig(config: LLMConfig): Required<LLMConfig> {
 	// Runtime validation as defensive programming (types already guarantee these)
 	if (!config.baseURL || !config.apiKey || !config.model) {
 		throw new Error(
-			'[PageAgent] LLM configuration required. Please provide: baseURL, apiKey, model. ' +
-				'See: https://alibaba.github.io/page-agent/docs/features/models'
+			'LLM configuration required. Please provide: baseURL, apiKey, model.'
 		)
 	}
 
 	// Auto-fix known incorrect base URLs
 	let baseURL = config.baseURL.replace(/\/+$/, '') // strip trailing slashes
 	if (baseURL === 'https://openrouter.ai/v1' || baseURL === 'http://openrouter.ai/v1') {
-		console.warn('[PageAgent] Auto-correcting OpenRouter base URL to https://openrouter.ai/api/v1')
+		console.warn('[OpenFill] Auto-correcting OpenRouter base URL to https://openrouter.ai/api/v1')
 		baseURL = 'https://openrouter.ai/api/v1'
 	}
 
@@ -33,15 +32,13 @@ export function parseLLMConfig(config: LLMConfig): Required<LLMConfig> {
 }
 
 export class LLM extends EventTarget {
-	config: Required<LLMConfig>
-	client: LLMClient
+	#rawConfig: LLMConfig
+	config!: Required<LLMConfig>
+	client!: LLMClient
 
 	constructor(config: LLMConfig) {
 		super()
-		this.config = parseLLMConfig(config)
-
-		// Default to OpenAI client
-		this.client = new OpenAIClient(this.config)
+		this.#rawConfig = config
 	}
 
 	/**
@@ -55,6 +52,13 @@ export class LLM extends EventTarget {
 		abortSignal: AbortSignal,
 		options?: InvokeOptions
 	): Promise<InvokeResult> {
+		// Validate and initialise config+client lazily (deferred from constructor
+		// so that creating an agent with an empty config doesn't crash the UI)
+		if (!this.client) {
+			this.config = parseLLMConfig(this.#rawConfig)
+			this.client = new OpenAIClient(this.config)
+		}
+
 		return await withRetry(
 			async () => {
 				// in case user aborted before invoking

@@ -1,5 +1,5 @@
 import { Download, History, Send, Settings, Square } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -8,13 +8,16 @@ import {
 	InputGroupButton,
 	InputGroupTextarea,
 } from '@/components/ui/input-group'
-import { saveSession } from '@/lib/db'
 
 import { downloadAgentLogs } from '@/lib/downloadLogs'
-import { useAgent } from '../../agent/useAgent'
+import { hasStartupErrors, onStartupError } from '@/lib/startupLog'
+import { useSessionManager } from '../../agent/useSessionManager'
+import { Trans } from '../../utils/Trans'
 import { ConfigPanel } from './components/ConfigPanel'
 import { HistoryDetail } from './components/HistoryDetail'
 import { HistoryList } from './components/HistoryList'
+import { MultiSessionNotice } from './components/MultiSessionNotice'
+import { SessionTabs } from './components/SessionTabs'
 import { ActivityCard, EventCard, TaskText } from './components/cards'
 import { EmptyState, Logo, MotionOverlay, StatusDot } from './components/misc'
 
@@ -30,25 +33,31 @@ export default function App() {
 	const historyRef = useRef<HTMLDivElement>(null)
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-	const { status, history, activity, currentTask, config, execute, stop, configure } = useAgent()
+	const [taskExpanded, setTaskExpanded] = useState(false)
 
-	// Persist session when task finishes
-	const prevStatusRef = useRef(status)
-	useEffect(() => {
-		const prev = prevStatusRef.current
-		prevStatusRef.current = status
+	const {
+		sessions,
+		activeSessionId,
+		activeSession,
+		config,
+		setActiveSessionId,
+		createSession,
+		closeSession,
+		execute,
+		stop,
+		configure,
+	} = useSessionManager()
 
-		if (
-			prev === 'running' &&
-			(status === 'completed' || status === 'error') &&
-			history.length > 0 &&
-			currentTask
-		) {
-			saveSession({ task: currentTask, history, status }).catch((err) =>
-				console.error('[SidePanel] Failed to save session:', err)
-			)
-		}
-	}, [status, history, currentTask])
+	const hasInitErrors = useSyncExternalStore(onStartupError, hasStartupErrors)
+
+	// Re-render when language changes
+	const [, setLangTick] = useState(0)
+	useEffect(() => Trans.subscribe(() => setLangTick((t) => t + 1)), [])
+
+	const status = activeSession?.status ?? 'idle'
+	const history = activeSession?.history ?? []
+	const activity = activeSession?.activity ?? null
+	const currentTask = activeSession?.task ?? ''
 
 	// Auto-scroll to bottom on new events
 	useEffect(() => {
@@ -66,7 +75,7 @@ export default function App() {
 			setInputValue('')
 
 			execute(taskToExecute).catch((error) => {
-				console.error('[SidePanel] Failed to execute task:', error)
+				console.log('[SidePanel] Failed to execute task:', error)
 			})
 		},
 		[inputValue, status, execute]
@@ -124,10 +133,18 @@ export default function App() {
 			<header className="flex items-center justify-between border-b px-3 py-2">
 				<div className="flex items-center gap-2">
 					<Logo className="size-5" />
-					<span className="text-sm font-medium">Page Agent Ext</span>
+					<span className="text-sm font-medium">OpenFill</span>
 				</div>
 				<div className="flex items-center gap-1">
 					<StatusDot status={status} />
+					<button
+						type="button"
+						onClick={() => config && configure({ ...config, language: config.language === 'zh-CN' ? 'en-US' : 'zh-CN' })}
+						className="text-xs text-muted-foreground hover:text-foreground cursor-pointer px-1 font-medium"
+						title={Trans.t('language')}
+					>
+						{config?.language === 'zh-CN' ? 'EN' : '中'}
+					</button>
 					<Button
 						variant="ghost"
 						size="icon-sm"
@@ -136,11 +153,11 @@ export default function App() {
 					>
 						<History className="size-3.5" />
 					</Button>
-					{history.length > 0 && (
+					{config?.showDownloadLogs && (history.length > 0 || hasInitErrors) && (
 						<Button
 							variant="ghost"
 							size="icon-sm"
-							title="Download logs"
+							title={Trans.t('download_logs')}
 							onClick={() => downloadAgentLogs(currentTask, history)}
 							className="cursor-pointer"
 						>
@@ -158,13 +175,34 @@ export default function App() {
 				</div>
 			</header>
 
+			{/* Session Tabs */}
+			<SessionTabs
+				sessions={sessions}
+				activeId={activeSessionId}
+				onSelect={setActiveSessionId}
+				onClose={closeSession}
+				onCreate={createSession}
+			/>
+
+			{/* One-time multi-session notice */}
+			<MultiSessionNotice />
+
 			{/* Content */}
 			<main className="flex-1 overflow-hidden flex flex-col">
-				{/* Current task */}
+				{/* Current task (first task of session) */}
 				{currentTask && (
-					<div className="border-b px-3 py-2 bg-muted/30">
-						<div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Task</div>
-						<TaskText task={currentTask} />
+					<div
+						className="border-b px-3 py-2 bg-muted/30 cursor-pointer select-none"
+						onClick={() => setTaskExpanded((v) => !v)}
+					>
+						<div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
+							{Trans.t('task')}
+						</div>
+						{taskExpanded ? (
+							<TaskText task={currentTask} />
+						) : (
+							<p className="text-xs text-foreground truncate">{currentTask}</p>
+						)}
 					</div>
 				)}
 
@@ -187,7 +225,7 @@ export default function App() {
 				<InputGroup className="relative rounded-lg">
 					<InputGroupTextarea
 						ref={textareaRef}
-						placeholder="Describe your task... (Enter to send)"
+						placeholder={Trans.t('task_placeholder')}
 						value={inputValue}
 						onChange={(e) => setInputValue(e.target.value)}
 						onKeyDown={handleKeyDown}

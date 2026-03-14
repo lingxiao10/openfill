@@ -15,7 +15,7 @@ function sendMessage(message: {
 	payload?: any
 }): Promise<any> {
 	return chrome.runtime.sendMessage(message).catch((error) => {
-		console.error(PREFIX, message.action, error)
+		console.log(PREFIX, message.action, error)
 		return null
 	})
 }

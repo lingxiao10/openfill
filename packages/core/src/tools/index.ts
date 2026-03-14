@@ -325,12 +325,19 @@ tools.set(
 				? `${input.task}\n\nContext: ${input.context}`
 				: input.task
 
-			const result = await subAgent.execute(fullTask)
+			// Propagate parent stop() to the sub-agent
+			const onParentAbort = () => subAgent.stop()
+			this.abortSignal.addEventListener('abort', onParentAbort, { once: true })
 
-			const output = result.success
-				? `✅ Sub-task completed.\nResult: ${result.data}`
-				: `❌ Sub-task failed.\nResult: ${result.data}`
-			return { output, subHistory: result.history }
+			try {
+				const result = await subAgent.execute(fullTask)
+				const output = result.success
+					? `✅ Sub-task completed.\nResult: ${result.data}`
+					: `❌ Sub-task failed.\nResult: ${result.data}`
+				return { output, subHistory: result.history }
+			} finally {
+				this.abortSignal.removeEventListener('abort', onParentAbort)
+			}
 		},
 	})
 )
