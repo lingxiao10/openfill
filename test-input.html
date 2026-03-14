@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Input Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 40px; }
+    textarea { width: 500px; height: 200px; font-size: 16px; padding: 8px; }
+    #log { margin-top: 20px; font-size: 13px; color: #555; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h2>Textarea Input Test</h2>
+  <textarea id="ta" placeholder="type here..."></textarea>
+  <div id="log"></div>
+
+  <script>
+    const ta = document.getElementById('ta')
+    const log = document.getElementById('log')
+
+    function append(msg) {
+      log.textContent += msg + '\n'
+    }
+
+    // Check if isTrusted can be overridden
+    const testEvt = new KeyboardEvent('test')
+    const desc = Object.getOwnPropertyDescriptor(testEvt, 'isTrusted')
+    append(`[debug] isTrusted own descriptor: ${JSON.stringify(desc)}`)
+    append(`[debug] isTrusted on prototype: ${JSON.stringify(Object.getOwnPropertyDescriptor(Event.prototype, 'isTrusted'))}`)
+    try {
+      Object.defineProperty(testEvt, 'isTrusted', { get: () => true })
+      append(`[debug] defineProperty succeeded → testEvt.isTrusted=${testEvt.isTrusted}`)
+    } catch(e) {
+      append(`[debug] defineProperty FAILED: ${e.message}`)
+    }
+
+    ;['keydown', 'keypress', 'keyup', 'beforeinput', 'input', 'change'].forEach(type => {
+      ta.addEventListener(type, e => {
+        if (e instanceof KeyboardEvent) {
+          append(`[${type}] key="${e.key}" code="${e.code}" keyCode=${e.keyCode} isTrusted=${e.isTrusted}`)
+        } else if (e instanceof InputEvent) {
+          append(`[${type}] inputType="${e.inputType}" data=${JSON.stringify(e.data)} isTrusted=${e.isTrusted}`)
+        } else {
+          append(`[${type}] isTrusted=${e.isTrusted}`)
+        }
+      })
+    })
+  </script>
+</body>
+</html>

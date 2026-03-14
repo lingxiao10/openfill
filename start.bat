@@ -1,0 +1,3 @@
+@echo off
+echo Starting extension dev mode...
+npm run dev:ext
