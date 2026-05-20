@@ -1,5 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	readdirSync,
+	unlinkSync,
+	writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 
 import type {
@@ -9,6 +16,8 @@ import type {
 	ElementSelector,
 	Execution,
 	StartExecutionPayload,
+	TrainerNote,
+	TrainerSequence,
 	TrainingTask,
 } from './types.js'
 
@@ -266,6 +275,84 @@ export function generateScript(taskId: string, executionId?: string): Automation
 	ensureDir(dir)
 	writeJSON(join(dir, `${script.id}.json`), script)
 	return script
+}
+
+// ─── Notes ────────────────────────────────────────────────────────────────────
+
+export function addNote(taskId: string, execId: string, content: string): TrainerNote | null {
+	const execPath = join(taskDir(taskId), 'executions', `${execId}.json`)
+	if (!existsSync(execPath)) return null
+	const exec = readJSON<Execution & { notes?: TrainerNote[] }>(execPath)
+	const note: TrainerNote = {
+		id: randomUUID(),
+		executionId: execId,
+		taskId,
+		content,
+		createdAt: new Date().toISOString(),
+	}
+	exec.notes = [...(exec.notes ?? []), note]
+	writeJSON(execPath, exec)
+	return note
+}
+
+export function getNotes(taskId: string, execId: string): TrainerNote[] {
+	const execPath = join(taskDir(taskId), 'executions', `${execId}.json`)
+	if (!existsSync(execPath)) return []
+	const exec = readJSON<Execution & { notes?: TrainerNote[] }>(execPath)
+	return exec.notes ?? []
+}
+
+// ─── AI Sequences ─────────────────────────────────────────────────────────────
+
+function sequencesDir(taskId: string) {
+	return join(taskDir(taskId), 'sequences')
+}
+
+export function listSequences(taskId: string): TrainerSequence[] {
+	const dir = sequencesDir(taskId)
+	ensureDir(dir)
+	return readdirSync(dir)
+		.filter((f) => f.endsWith('.json'))
+		.map((f) => {
+			try {
+				return readJSON<TrainerSequence>(join(dir, f))
+			} catch {
+				return null
+			}
+		})
+		.filter(Boolean) as TrainerSequence[]
+}
+
+export function saveSequence(
+	taskId: string,
+	name: string,
+	description: string,
+	params: string[],
+	xml: string
+): TrainerSequence {
+	const dir = sequencesDir(taskId)
+	ensureDir(dir)
+	// Update if same name exists
+	const existing = listSequences(taskId).find((s) => s.name === name)
+	const seq: TrainerSequence = {
+		id: existing?.id ?? randomUUID(),
+		taskId,
+		name,
+		description,
+		params,
+		xml,
+		createdAt: existing?.createdAt ?? new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
+	}
+	writeJSON(join(dir, `${seq.id}.json`), seq)
+	return seq
+}
+
+export function deleteSequence(taskId: string, seqId: string): boolean {
+	const path = join(sequencesDir(taskId), `${seqId}.json`)
+	if (!existsSync(path)) return false
+	unlinkSync(path)
+	return true
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

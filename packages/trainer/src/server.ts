@@ -122,6 +122,55 @@ export function createServer() {
 		res.status(201).json(script)
 	})
 
+	// ── Notes ──────────────────────────────────────────────────────────────────
+
+	app.get('/api/tasks/:id/executions/:eid/notes', (req, res) => {
+		res.json(tm.getNotes(req.params.id, req.params.eid))
+	})
+
+	app.post('/api/tasks/:id/executions/:eid/notes', (req, res) => {
+		const { content } = req.body as { content: string }
+		if (!content) {
+			res.status(400).json({ error: 'content is required' })
+			return
+		}
+		const note = tm.addNote(req.params.id, req.params.eid, content)
+		if (!note) {
+			res.status(404).json({ error: 'Execution not found' })
+			return
+		}
+		res.status(201).json(note)
+	})
+
+	// ── AI Sequences ───────────────────────────────────────────────────────────
+
+	app.get('/api/tasks/:id/sequences', (req, res) => {
+		res.json(tm.listSequences(req.params.id))
+	})
+
+	app.post('/api/tasks/:id/sequences', (req, res) => {
+		const { name, description, params, xml } = req.body as {
+			name: string
+			description: string
+			params: string[]
+			xml: string
+		}
+		if (!name || !xml) {
+			res.status(400).json({ error: 'name and xml are required' })
+			return
+		}
+		res.status(201).json(tm.saveSequence(req.params.id, name, description ?? '', params ?? [], xml))
+	})
+
+	app.delete('/api/tasks/:id/sequences/:sid', (req, res) => {
+		const ok = tm.deleteSequence(req.params.id, req.params.sid)
+		if (!ok) {
+			res.status(404).json({ error: 'Not found' })
+			return
+		}
+		res.json({ ok: true })
+	})
+
 	// Health check (also used by extension to detect trainer availability)
 	app.get('/health', (_req, res) => {
 		res.json({ ok: true, service: 'page-agent-trainer', version: '1.0.0' })

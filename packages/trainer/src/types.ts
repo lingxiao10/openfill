@@ -112,6 +112,31 @@ export interface AutomationScript {
 	steps: AutomationStep[]
 }
 
+// ─── Note ────────────────────────────────────────────────────────────────────
+
+export interface TrainerNote {
+	id: string
+	executionId: string
+	taskId: string
+	content: string
+	createdAt: string
+}
+
+// ─── AI-authored Sequence ─────────────────────────────────────────────────────
+
+export interface TrainerSequence {
+	id: string
+	taskId: string
+	name: string
+	description: string
+	/** Comma-separated param names */
+	params: string[]
+	/** Serialized XML */
+	xml: string
+	createdAt: string
+	updatedAt: string
+}
+
 // ─── API payloads ─────────────────────────────────────────────────────────────
 
 export interface CreateTaskPayload {

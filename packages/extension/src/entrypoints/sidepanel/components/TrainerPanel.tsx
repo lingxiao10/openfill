@@ -1,32 +1,40 @@
-import { BookOpen, ChevronRight, Play, Plus, RotateCw, WifiOff } from 'lucide-react'
+import { BookOpen, ChevronRight, Edit2, Play, Plus, RotateCw, Trash2, WifiOff } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import * as TC from '@/trainer/TrainerClient'
-import type { AutomationScript, TrainingTask } from '@/trainer/types'
+import type { AutomationScript, TrainerSequence, TrainingTask } from '@/trainer/types'
 import { Trans } from '@/utils/Trans'
 
 interface TrainerPanelProps {
-	/** Called when user picks a training task + request to start AI exploration */
 	onStartExploration: (taskId: string, userRequest: string) => void
-	/** Called when user picks a script to run */
 	onRunScript: (script: AutomationScript) => void
+	onRunSequence: (seq: TrainerSequence) => void
 	onBack: () => void
 }
 
 type View = 'list' | 'new' | 'detail'
+type DetailTab = 'scripts' | 'sequences'
 
-export function TrainerPanel({ onStartExploration, onRunScript, onBack }: TrainerPanelProps) {
+export function TrainerPanel({
+	onStartExploration,
+	onRunScript,
+	onRunSequence,
+	onBack,
+}: TrainerPanelProps) {
 	const [view, setView] = useState<View>('list')
 	const [online, setOnline] = useState<boolean | null>(null)
 	const [tasks, setTasks] = useState<TrainingTask[]>([])
 	const [selectedTask, setSelectedTask] = useState<TrainingTask | null>(null)
 	const [scripts, setScripts] = useState<AutomationScript[]>([])
+	const [sequences, setSequences] = useState<TrainerSequence[]>([])
+	const [detailTab, setDetailTab] = useState<DetailTab>('sequences')
 	const [generating, setGenerating] = useState(false)
 
-	// New-task form
+	// New / Edit task form
+	const [editingTask, setEditingTask] = useState<TrainingTask | null>(null)
 	const [name, setName] = useState('')
 	const [url, setUrl] = useState('')
 	const [desc, setDesc] = useState('')
@@ -45,35 +53,56 @@ export function TrainerPanel({ onStartExploration, onRunScript, onBack }: Traine
 		refresh()
 	}, [refresh])
 
-	// Load scripts when task is selected
 	useEffect(() => {
 		if (!selectedTask) return
 		TC.listScripts(selectedTask.id).then((s) => setScripts(s ?? []))
+		TC.listSequences(selectedTask.id).then((s) => setSequences((s as TrainerSequence[]) ?? []))
 	}, [selectedTask])
 
-	// ── New task form ──────────────────────────────────────────────────────────
+	// ── Form helpers ──────────────────────────────────────────────────────────
 
-	const handleCreate = async () => {
+	const openNew = () => {
+		setEditingTask(null)
+		setName('')
+		setUrl('')
+		setDesc('')
+		setView('new')
+	}
+
+	const openEdit = (task: TrainingTask) => {
+		setEditingTask(task)
+		setName(task.name)
+		setUrl(task.url)
+		setDesc(task.description)
+		setView('new')
+	}
+
+	const handleSave = async () => {
 		if (!name.trim() || !url.trim() || !desc.trim()) return
 		setSaving(true)
 		try {
-			const task = await TC.createTask(name.trim(), url.trim(), desc.trim())
-			if (task) {
-				setTasks((prev) => [task, ...prev])
-				setName('')
-				setUrl('')
-				setDesc('')
-				setView('list')
+			if (editingTask) {
+				const updated = (await TC.updateTask(editingTask.id, {
+					name: name.trim(),
+					url: url.trim(),
+					description: desc.trim(),
+				})) as TrainingTask | null
+				if (updated) {
+					setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+					if (selectedTask?.id === updated.id) setSelectedTask(updated)
+				}
+			} else {
+				const task = await TC.createTask(name.trim(), url.trim(), desc.trim())
+				if (task) setTasks((prev) => [task, ...prev])
 			}
+			setName('')
+			setUrl('')
+			setDesc('')
+			setEditingTask(null)
+			setView('list')
 		} finally {
 			setSaving(false)
 		}
-	}
-
-	// ── Exploration ───────────────────────────────────────────────────────────
-
-	const handleStartExploration = (task: TrainingTask) => {
-		onStartExploration(task.id, task.description)
 	}
 
 	// ── Script generation ─────────────────────────────────────────────────────
@@ -86,6 +115,15 @@ export function TrainerPanel({ onStartExploration, onRunScript, onBack }: Traine
 			if (script) setScripts((prev) => [script, ...prev])
 		} finally {
 			setGenerating(false)
+		}
+	}
+
+	const goBack = () => {
+		if (view === 'list') {
+			onBack()
+		} else {
+			setView('list')
+			setSelectedTask(null)
 		}
 	}
 
@@ -113,24 +151,13 @@ export function TrainerPanel({ onStartExploration, onRunScript, onBack }: Traine
 						<Button
 							variant="ghost"
 							size="icon-sm"
-							onClick={() => setView('new')}
+							onClick={openNew}
 							title={Trans.t('trainer_new_task')}
 						>
 							<Plus className="size-3.5" />
 						</Button>
 					)}
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						onClick={
-							view === 'list'
-								? onBack
-								: () => {
-										setView('list')
-										setSelectedTask(null)
-									}
-						}
-					>
+					<Button variant="ghost" size="icon-sm" onClick={goBack}>
 						<span className="text-xs">{Trans.t('trainer_back')}</span>
 					</Button>
 				</div>
@@ -148,9 +175,12 @@ export function TrainerPanel({ onStartExploration, onRunScript, onBack }: Traine
 					</div>
 				)}
 
-				{/* New task form */}
+				{/* New / Edit task form */}
 				{view === 'new' && (
 					<div className="flex flex-col gap-3">
+						<p className="text-xs font-medium text-muted-foreground">
+							{editingTask ? Trans.t('trainer_edit_task') : Trans.t('trainer_new_task')}
+						</p>
 						<div className="flex flex-col gap-1.5">
 							<label className="text-xs text-muted-foreground">
 								{Trans.t('trainer_task_name')}
@@ -192,7 +222,7 @@ export function TrainerPanel({ onStartExploration, onRunScript, onBack }: Traine
 							</Button>
 							<Button
 								className="flex-1 h-8 text-xs"
-								onClick={handleCreate}
+								onClick={handleSave}
 								disabled={saving || !name || !url || !desc}
 							>
 								{saving ? Trans.t('loading') : Trans.t('save')}
@@ -216,16 +246,26 @@ export function TrainerPanel({ onStartExploration, onRunScript, onBack }: Traine
 										<p className="text-xs font-medium truncate">{task.name}</p>
 										<p className="text-[10px] text-muted-foreground truncate">{task.url}</p>
 									</div>
-									<span
-										className={cn(
-											'text-[10px] shrink-0 px-1.5 py-0.5 rounded-full',
-											task.status === 'active'
-												? 'bg-green-500/10 text-green-600'
-												: 'bg-muted text-muted-foreground'
-										)}
-									>
-										{Trans.t(`trainer_status_${task.status}` as any) || task.status}
-									</span>
+									<div className="flex items-center gap-1 shrink-0">
+										<span
+											className={cn(
+												'text-[10px] px-1.5 py-0.5 rounded-full',
+												task.status === 'active'
+													? 'bg-green-500/10 text-green-600'
+													: 'bg-muted text-muted-foreground'
+											)}
+										>
+											{Trans.t(`trainer_status_${task.status}` as any) || task.status}
+										</span>
+										<Button
+											variant="ghost"
+											size="icon-sm"
+											onClick={() => openEdit(task)}
+											title={Trans.t('trainer_edit_task')}
+										>
+											<Edit2 className="size-3" />
+										</Button>
+									</div>
 								</div>
 								<p className="text-[10px] text-muted-foreground line-clamp-2">{task.description}</p>
 								<div className="flex gap-1.5">
@@ -233,7 +273,7 @@ export function TrainerPanel({ onStartExploration, onRunScript, onBack }: Traine
 										variant="default"
 										size="sm"
 										className="h-7 text-[11px] flex-1 gap-1"
-										onClick={() => handleStartExploration(task)}
+										onClick={() => onStartExploration(task.id, task.description)}
 									>
 										<Play className="size-3" />
 										{Trans.t('trainer_start_explore')}
@@ -256,7 +296,7 @@ export function TrainerPanel({ onStartExploration, onRunScript, onBack }: Traine
 					</div>
 				)}
 
-				{/* Task detail — scripts */}
+				{/* Task detail */}
 				{view === 'detail' && selectedTask && (
 					<div className="flex flex-col gap-3">
 						<div className="rounded-md bg-muted/30 border p-2.5">
@@ -264,46 +304,121 @@ export function TrainerPanel({ onStartExploration, onRunScript, onBack }: Traine
 							<p className="text-[10px] text-muted-foreground mt-0.5">{selectedTask.description}</p>
 						</div>
 
-						<div className="flex items-center justify-between">
-							<span className="text-xs font-medium">{Trans.t('trainer_scripts')}</span>
-							<Button
-								variant="outline"
-								size="sm"
-								className="h-7 text-[11px] gap-1"
-								onClick={handleGenerate}
-								disabled={generating}
+						{/* Tabs */}
+						<div className="flex border rounded-md overflow-hidden text-[11px]">
+							<button
+								className={cn(
+									'flex-1 py-1.5 transition-colors',
+									detailTab === 'sequences'
+										? 'bg-primary text-primary-foreground'
+										: 'hover:bg-muted'
+								)}
+								onClick={() => setDetailTab('sequences')}
 							>
-								{generating ? Trans.t('trainer_generating') : Trans.t('trainer_generate_script')}
-							</Button>
+								{Trans.t('trainer_sequences')} ({sequences.length})
+							</button>
+							<button
+								className={cn(
+									'flex-1 py-1.5 transition-colors',
+									detailTab === 'scripts' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+								)}
+								onClick={() => setDetailTab('scripts')}
+							>
+								{Trans.t('trainer_scripts')} ({scripts.length})
+							</button>
 						</div>
 
-						{scripts.length === 0 && (
-							<p className="text-xs text-muted-foreground text-center py-4">
-								{Trans.t('trainer_no_scripts')}
-							</p>
+						{/* Sequences tab */}
+						{detailTab === 'sequences' && (
+							<div className="flex flex-col gap-2">
+								{sequences.length === 0 && (
+									<p className="text-xs text-muted-foreground text-center py-4">
+										{Trans.t('trainer_no_sequences')}
+									</p>
+								)}
+								{sequences.map((seq) => (
+									<div key={seq.id} className="rounded-md border p-3 flex flex-col gap-2">
+										<div>
+											<p className="text-xs font-medium">{seq.name}</p>
+											<p className="text-[10px] text-muted-foreground">{seq.description}</p>
+											{seq.params.length > 0 && (
+												<p className="text-[10px] text-blue-500 mt-0.5">
+													params: {seq.params.join(', ')}
+												</p>
+											)}
+										</div>
+										<div className="flex gap-1.5">
+											<Button
+												variant="default"
+												size="sm"
+												className="h-7 text-[11px] gap-1 flex-1"
+												onClick={() => onRunSequence(seq)}
+											>
+												<Play className="size-3" />
+												{Trans.t('trainer_run_script')}
+											</Button>
+											<Button
+												variant="ghost"
+												size="icon-sm"
+												className="h-7 w-7 shrink-0"
+												onClick={async () => {
+													await TC.deleteSequence(selectedTask.id, seq.id)
+													setSequences((prev) => prev.filter((s) => s.id !== seq.id))
+												}}
+											>
+												<Trash2 className="size-3 text-destructive" />
+											</Button>
+										</div>
+									</div>
+								))}
+							</div>
 						)}
 
-						{scripts.map((script) => (
-							<div key={script.id} className="rounded-md border p-3 flex flex-col gap-2">
-								<div>
-									<p className="text-xs font-medium">{script.name}</p>
-									<p className="text-[10px] text-muted-foreground">
-										{Trans.t('trainer_steps').replace('{{n}}', String(script.steps.length))}
-										{' · '}
-										{new Date(script.createdAt).toLocaleDateString()}
-									</p>
+						{/* Scripts tab */}
+						{detailTab === 'scripts' && (
+							<div className="flex flex-col gap-2">
+								<div className="flex items-center justify-between">
+									<span className="text-xs font-medium">{Trans.t('trainer_scripts')}</span>
+									<Button
+										variant="outline"
+										size="sm"
+										className="h-7 text-[11px] gap-1"
+										onClick={handleGenerate}
+										disabled={generating}
+									>
+										{generating
+											? Trans.t('trainer_generating')
+											: Trans.t('trainer_generate_script')}
+									</Button>
 								</div>
-								<Button
-									variant="default"
-									size="sm"
-									className="h-7 text-[11px] gap-1 w-full"
-									onClick={() => onRunScript(script)}
-								>
-									<Play className="size-3" />
-									{Trans.t('trainer_run_script')}
-								</Button>
+								{scripts.length === 0 && (
+									<p className="text-xs text-muted-foreground text-center py-4">
+										{Trans.t('trainer_no_scripts')}
+									</p>
+								)}
+								{scripts.map((script) => (
+									<div key={script.id} className="rounded-md border p-3 flex flex-col gap-2">
+										<div>
+											<p className="text-xs font-medium">{script.name}</p>
+											<p className="text-[10px] text-muted-foreground">
+												{Trans.t('trainer_steps').replace('{{n}}', String(script.steps.length))}
+												{' · '}
+												{new Date(script.createdAt).toLocaleDateString()}
+											</p>
+										</div>
+										<Button
+											variant="default"
+											size="sm"
+											className="h-7 text-[11px] gap-1 w-full"
+											onClick={() => onRunScript(script)}
+										>
+											<Play className="size-3" />
+											{Trans.t('trainer_run_script')}
+										</Button>
+									</div>
+								))}
 							</div>
-						))}
+						)}
 					</div>
 				)}
 			</div>

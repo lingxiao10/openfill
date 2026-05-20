@@ -10,6 +10,7 @@ import * as z from 'zod/v4'
 
 import { upsertSession } from '@/lib/db'
 import * as TC from '@/trainer/TrainerClient'
+import { clearDrafts, createTrainerTools } from '@/trainer/TrainerTools'
 import { Trans } from '@/utils/Trans'
 
 import { debugLogActivity, debugLogEvent, debugLogTaskStart } from '../lib/debugLog'
@@ -71,7 +72,12 @@ const SEARCH_INSTRUCTION =
 	'Search first, then work — integrate the findings naturally into your output.\n' +
 	'</web_search_instructions>'
 
-function buildAgent(config: ExtConfig, sessionName: string, sessionId: string): MultiPageAgent {
+function buildAgent(
+	config: ExtConfig,
+	sessionName: string,
+	sessionId: string,
+	extraTools?: Record<string, PageAgentTool>
+): MultiPageAgent {
 	const { systemInstruction, doubaoApiKey, doubaoSearchEndpoint, searchEnabled, ...agentConfig } =
 		config
 
@@ -92,7 +98,7 @@ function buildAgent(config: ExtConfig, sessionName: string, sessionId: string): 
 		sessionId,
 		onActionLog: TC.enrichAndQueue,
 		instructions: combinedInstruction ? { system: combinedInstruction } : undefined,
-		...(hasSearch ? { customTools } : {}),
+		customTools: { ...customTools, ...(extraTools ?? {}) },
 	})
 }
 
@@ -168,24 +174,40 @@ export class SessionManager extends EventTarget {
 		})
 	}
 
-	/** Execute a task in trainer mode — wraps executeInSession with log capture */
+	/** Execute a task in trainer mode — injects trainer tools and wraps with log capture */
 	async executeInTrainerMode(
 		sessionId: string,
 		taskId: string,
 		userRequest: string
 	): Promise<void> {
+		const entry = this.#entries.get(sessionId)
+		if (!entry) throw new Error(`Session ${sessionId} not found`)
+
 		const execId = await TC.startExecution(taskId, userRequest)
 		if (!execId) {
-			// Trainer server offline — fall back to a normal run
+			// Trainer server offline — fall back to normal run without tools
 			await this.executeInSession(sessionId, userRequest)
 			return
 		}
+
+		// Rebuild agent with trainer tools injected
+		clearDrafts()
+		const trainerTools = createTrainerTools(taskId)
+		entry.agent.dispose()
+		entry.agent = buildAgent(this.#config!, entry.session.name, sessionId, trainerTools)
+		this.#bindAgent(entry)
+
 		let success = false
 		try {
 			await this.executeInSession(sessionId, userRequest)
 			success = true
 		} finally {
 			await TC.completeExecution(success)
+			clearDrafts()
+			// Restore standard agent (without trainer tools)
+			entry.agent.dispose()
+			entry.agent = buildAgent(this.#config!, entry.session.name, sessionId)
+			this.#bindAgent(entry)
 		}
 	}
 

@@ -44,17 +44,90 @@
 - `MultiSessionNotice.tsx`：首次打开弹窗，localStorage 记录是否已展示，国际化
 
 ## Trainer 训练与自动化系统（2026-05）
+
+### 已完成（v1）
 - `packages/trainer/`：独立 Node.js 服务（port 3002），`npm run dev:trainer` 启动
   - `TaskManager.ts`：文件存储，data/tasks/{taskId}/ 目录，管理 Task/Execution/Script
-  - `server.ts`：Express REST API，路由：/health, /api/tasks, /api/tasks/:id/executions, /api/tasks/:id/generate-script, /api/tasks/:id/scripts
-- Extension 端：`src/trainer/`
-  - `TrainerClient.ts`：HTTP client (port 3002)，`enrichAndQueue` 捕获 action log + 解析元素属性，`startExecution`/`completeExecution` 包裹任务执行
-  - `parseElementMap.ts`：解析 `[N]<tag attr=val>text />` 格式
-  - `ScriptRunner.ts`：AI-free 脚本回放，直接发 PAGE_CONTROL 消息到 content script
-  - `types.ts`：re-export from packages/trainer/src/types
-- SessionManager.ts：`buildAgent` 加了 `onActionLog: TC.enrichAndQueue`（always safe，无活跃 exec 时 no-op）；新增 `executeInTrainerMode(sessionId, taskId, userRequest)` 方法
-- App.tsx：header 加 BookOpen 按钮 → trainer view；trainer view 渲染 TrainerPanel，`onStartExploration` 调 `executeInTrainerMode`，`onRunScript` 调 `runScript`
-- `core/types.ts`：AgentConfig 加了 `onActionLog?: (entry: ActionLogRaw) => void` 和 `ActionLogRaw` 类型
+  - `server.ts`：Express REST API
+- Extension：`src/trainer/TrainerClient.ts`、`ScriptRunner.ts`、`parseElementMap.ts`
+- SessionManager：`onActionLog: TC.enrichAndQueue` + `executeInTrainerMode()`
+- App.tsx：BookOpen 按钮 → TrainerPanel 视图
+
+### v2 设计图景（AI 自主编程脚本）
+
+#### 目标
+让 AI 探索时能自己编写、测试、确认可复用的 Sequence 脚本，而不是被动录制。
+
+#### 模块划分（松耦合，每个模块独立可测）
+
+**M1 — `sequence/types.ts`**（纯类型，零依赖）
+```
+SequenceSpec { name, description, params[], steps[] }
+StepSpec { type, selector?, value?, ms?, url?, direction?, pages? }
+SelectorSpec = string  // 格式: "text:xxx" | "aria:xxx" | "placeholder:xxx" | "css:xxx" | "role:xxx"
+StepType = click|input|input_enter|wait|navigate|scroll|send_keys
+StepResult { stepIndex, success, error? }
+```
+
+**M2 — `sequence/SequenceParser.ts`**（纯函数，零依赖）
+- `parse(xml): SequenceSpec | Error` — 解析 AI 输出的 XML
+- `serialize(seq): string` — 生成 XML 字符串
+- `applyParams(seq, params): SequenceSpec` — `{{param}}` 模板替换
+- XML 格式:
+  ```xml
+  <sequence name="apply_job" params="greeting">
+    <step type="click" selector="text:立即申请" />
+    <step type="input" selector="placeholder:打招呼" value="{{greeting}}" />
+    <step type="click" selector="text:发送" />
+  </sequence>
+  ```
+
+**M3 — `sequence/SequenceExecutor.ts`**（依赖抽象接口，不依赖 chrome API）
+- 接口：`PageActionSender { send(action, tabId, payload): Promise<unknown> }`
+- `execute(seq, params, tabId, sender, onStep?): Promise<StepResult[]>`
+- 通过 `execute_javascript` PAGE_CONTROL 在页面内查找元素并执行操作
+- 完全可 mock 测试
+
+**M4 — `TrainerTools.ts`**（AI 工具集，依赖 M2/M3 + TrainerClient）
+- `createTrainerTools(taskId): Record<string, PageAgentTool>`
+- 提供工具：
+  - `write_note(content)` — 写入笔记到当前 execution
+  - `write_sequence(xml)` — 解析并暂存序列到内存
+  - `exec_sequence(name, params)` — 执行序列，返回每步结果
+  - `finalize_sequence(name)` — 保存序列到 trainer server
+- 暂存序列在 module-level Map（同一次 execution 生命周期内有效）
+
+**M5 — server: `NoteStore.ts` + `SequenceStore.ts`**（文件存储，零依赖）
+- Note：存在 execution JSON 的 `notes[]` 字段
+- Sequence：`data/tasks/{id}/sequences/{id}.json`
+- API 新增：
+  - `POST /api/tasks/:id/executions/:eid/notes`
+  - `GET/POST /api/tasks/:id/sequences`
+  - `PUT /api/tasks/:id/sequences/:sid`
+
+**M6 — `SessionManager` 扩展**
+- `executeInTrainerMode` 在执行前注入 TrainerTools 到 agent（重建 agent with extraTools）
+- 执行结束后恢复原 agent
+
+**M7 — UI 更新**
+- TrainerPanel：任务可编辑（name/url/desc）
+- TrainerPanel detail：新增 Notes 标签页展示笔记
+- TrainerPanel detail：Sequences 列表（区别于录制生成的 Scripts）
+
+#### 数据流
+```
+AI 探索 → write_note (笔记积累)
+         → write_sequence (草稿序列写入内存)
+         → exec_sequence (测试，结果返回给AI)
+         → 修改再测试...
+         → finalize_sequence (存服务器)
+用户点击 → SequenceExecutor 回放
+```
+
+#### 关键约定
+- SelectorSpec 优先级：aria > placeholder > text > role > css（降级匹配）
+- 参数格式：`params="key1,key2"`，调用时 `params="key1=val1,key2=val2"`
+- note 工具在非训练模式下不加入 agent（通过 TrainerTools.createTrainerTools 按需注入）
 
 ## 豆包网络搜索工具（2026-03）
 - 核心客户端：`packages/core/src/utils/doubao/DoubaoClient.ts`（静态方法）, `DoubaoConfig.ts`（setApiKey/getApiKey）, `DoubaoTypes.ts`

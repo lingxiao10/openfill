@@ -116,6 +116,41 @@ async function flushLogs(): Promise<void> {
 	})
 }
 
+// ─── Notes ────────────────────────────────────────────────────────────────────
+
+export function addNote(taskId: string, execId: string, content: string): Promise<unknown> {
+	return api('POST', `/api/tasks/${taskId}/executions/${execId}/notes`, { content })
+}
+
+// ─── AI Sequences ─────────────────────────────────────────────────────────────
+
+export function saveSequence(
+	taskId: string,
+	name: string,
+	description: string,
+	params: string[],
+	xml: string
+): Promise<unknown> {
+	return api('POST', `/api/tasks/${taskId}/sequences`, { name, description, params, xml })
+}
+
+export function listSequences(taskId: string): Promise<unknown[] | null> {
+	return api<unknown[]>('GET', `/api/tasks/${taskId}/sequences`)
+}
+
+export function deleteSequence(taskId: string, seqId: string): Promise<unknown> {
+	return api('DELETE', `/api/tasks/${taskId}/sequences/${seqId}`)
+}
+
+// ─── Task update ──────────────────────────────────────────────────────────────
+
+export function updateTask(
+	taskId: string,
+	patch: { name?: string; url?: string; description?: string }
+): Promise<unknown> {
+	return api('PATCH', `/api/tasks/${taskId}`, patch)
+}
+
 // ─── Scripts ──────────────────────────────────────────────────────────────────
 
 export function listScripts(taskId: string): Promise<AutomationScript[] | null> {
