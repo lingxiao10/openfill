@@ -132,6 +132,13 @@ export interface AgentConfig extends LLMConfig {
 	 */
 	onDispose?: (agent: PageAgentCore, reason?: string) => void
 
+	/**
+	 * Called after each individual action is executed within a step.
+	 * Provides full context for training data collection and automation script generation.
+	 * @experimental
+	 */
+	onActionLog?: (entry: ActionLogRaw) => void
+
 	// page behavior hooks
 
 	/**
@@ -310,4 +317,24 @@ export interface ExecutionResult {
 	success: boolean
 	data: string
 	history: HistoricalEvent[]
+}
+
+/**
+ * Raw action log entry emitted via onActionLog.
+ * The extension's TrainerClient enriches this and sends it to the trainer server.
+ */
+export interface ActionLogRaw {
+	stepIndex: number
+	actionIndex: number
+	timestamp: string
+	url: string
+	pageTitle: string
+	/** Simplified page content ([N]<tag> string) at the time of this action */
+	pageContent: string
+	action: {
+		name: string
+		input: Record<string, unknown>
+		output: string
+		durationMs: number
+	}
 }

@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react'
 import { TypingAnimation } from '@/components/ui/typing-animation'
 import { cn } from '@/lib/utils'
 import { Trans } from '@/utils/Trans'
+import { useDevServerStatus } from '@/utils/useDevServerStatus'
 
 export function StatusDot({ status }: { status: AgentStatus }) {
 	const colorClass = {
@@ -28,6 +29,21 @@ export function StatusDot({ status }: { status: AgentStatus }) {
 			/>
 			<span className="text-xs text-muted-foreground">{label}</span>
 		</div>
+	)
+}
+
+export function DevServerDot() {
+	const status = useDevServerStatus()
+	const connected = status === 'connected'
+
+	return (
+		<span
+			title={Trans.t(connected ? 'dev_server_connected' : 'dev_server_disconnected')}
+			className={cn(
+				'size-2 rounded-full transition-colors',
+				connected ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground/40'
+			)}
+		/>
 	)
 }
 
@@ -71,7 +87,9 @@ export function MotionOverlay({ active }: { active: boolean }) {
 		} else {
 			motion.fadeOut().then(() => !disposed && motion.pause())
 		}
-		return () => { disposed = true }
+		return () => {
+			disposed = true
+		}
 	}, [active])
 
 	return (

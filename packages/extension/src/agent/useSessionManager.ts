@@ -6,8 +6,9 @@ import type { LLMConfig } from '@page-agent/llms'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Trans } from '@/utils/Trans'
+
+import { type ChatSession, SessionManager } from './SessionManager'
 import { DEMO_CONFIG, migrateLegacyEndpoint } from './constants'
-import { SessionManager, type ChatSession } from './SessionManager'
 import type { AdvancedConfig, ExtConfig } from './useAgent'
 
 /** Sync the UI language (Trans) with the stored agent language preference */
@@ -26,6 +27,7 @@ export interface UseSessionManagerResult {
 	createSession: () => string
 	closeSession: (id: string) => void
 	execute: (task: string) => Promise<void>
+	executeInTrainerMode: (taskId: string, userRequest: string) => Promise<void>
 	stop: () => void
 	configure: (config: ExtConfig) => Promise<void>
 }
@@ -103,6 +105,14 @@ export function useSessionManager(): UseSessionManagerResult {
 		[activeSessionId]
 	)
 
+	const executeInTrainerMode = useCallback(
+		async (taskId: string, userRequest: string) => {
+			if (!activeSessionId) return
+			await managerRef.current.executeInTrainerMode(activeSessionId, taskId, userRequest)
+		},
+		[activeSessionId]
+	)
+
 	const stop = useCallback(() => {
 		if (!activeSessionId) return
 		managerRef.current.stopSession(activeSessionId)
@@ -155,6 +165,7 @@ export function useSessionManager(): UseSessionManagerResult {
 		createSession,
 		closeSession,
 		execute,
+		executeInTrainerMode,
 		stop,
 		configure,
 	}

@@ -19,6 +19,12 @@ export default defineConfig({
 		keepProfileChanges: true,
 		chromiumArgs: ['--hide-crash-restore-bubble'],
 	},
+	dev: {
+		server: {
+			host: '127.0.0.1',
+			origin: '127.0.0.1',
+		},
+	},
 	vite: () => ({
 		plugins: [tailwindcss()],
 		define: {
@@ -50,7 +56,13 @@ export default defineConfig({
 		default_locale: 'en',
 		name: '__MSG_extName__',
 		description: '__MSG_extDescription__',
-		permissions: ['tabs', 'tabGroups', 'sidePanel', 'storage', ...(isDebuggerMode ? ['debugger'] : [])],
+		permissions: [
+			'tabs',
+			'tabGroups',
+			'sidePanel',
+			'storage',
+			...(isDebuggerMode ? ['debugger'] : []),
+		],
 		host_permissions: ['<all_urls>'],
 		icons: {
 			16: 'assets/icon-16.png',

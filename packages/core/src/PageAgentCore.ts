@@ -28,8 +28,18 @@ import { assert, fetchLlmsTxt, getEnvInfo, normalizeResponse, uid, waitFor } fro
 export { tool, type PageAgentTool } from './tools'
 export type * from './types'
 export { DoubaoClient } from './utils/doubao/DoubaoClient'
-export { DoubaoConfig, DOUBAO_DEFAULT_MODEL, DOUBAO_MODELS, DOUBAO_BASE_URL } from './utils/doubao/DoubaoConfig'
-export type { DoubaoModel, ChatOptions, DoubaoTextResult, DoubaoExtraData } from './utils/doubao/DoubaoTypes'
+export {
+	DoubaoConfig,
+	DOUBAO_DEFAULT_MODEL,
+	DOUBAO_MODELS,
+	DOUBAO_BASE_URL,
+} from './utils/doubao/DoubaoConfig'
+export type {
+	DoubaoModel,
+	ChatOptions,
+	DoubaoTextResult,
+	DoubaoExtraData,
+} from './utils/doubao/DoubaoTypes'
 
 export type PageAgentCoreConfig = AgentConfig & {
 	pageController: PageController
@@ -105,12 +115,14 @@ export class PageAgentCore extends EventTarget {
 		lastURL: '',
 		/** Browser state */
 		browserState: null as BrowserState | null,
+		/** Current step index (for onActionLog) */
+		currentStep: 0,
 	}
 
 	constructor(config: PageAgentCoreConfig) {
 		super()
 
-		this.config = { ...config, maxSteps: config.maxSteps ?? 40 }
+		this.config = { ...config, maxSteps: config.maxSteps ?? 2000 }
 
 		this.#llm = new LLM(this.config)
 		this.tools = new Map(tools)
@@ -140,8 +152,7 @@ export class PageAgentCore extends EventTarget {
 				message,
 				// rawError holds the HTTP error body (e.g. 400 provider error details)
 				// rawResponse holds the LLM response body (e.g. for parse errors)
-				rawResponse:
-					(error as InvokeError).rawResponse ?? (error as InvokeError).rawError,
+				rawResponse: (error as InvokeError).rawResponse ?? (error as InvokeError).rawError,
 			})
 			this.#emitHistoryChange()
 		})
@@ -260,7 +271,7 @@ export class PageAgentCore extends EventTarget {
 		this.#observations = []
 
 		// Reset internal states
-		this.#states = { totalWaitTime: 0, lastURL: '', browserState: null }
+		this.#states = { totalWaitTime: 0, lastURL: '', browserState: null, currentStep: 0 }
 
 		let step = 0
 
@@ -275,6 +286,7 @@ export class PageAgentCore extends EventTarget {
 				console.log(chalk.blue.bold('👀 Observing...'))
 
 				this.#states.browserState = await this.pageController.getBrowserState()
+				this.#states.currentStep = step
 				await this.#handleObservations(step)
 
 				// assemble prompts
@@ -456,6 +468,25 @@ export class PageAgentCore extends EventTarget {
 
 					const duration = Date.now() - startTime
 					console.log(chalk.green.bold(`Tool (${toolName}) executed for ${duration}ms`), result)
+
+					// Fire onActionLog if configured (used by trainer for data collection)
+					if (this.config.onActionLog) {
+						const bs = this.#states.browserState
+						this.config.onActionLog({
+							stepIndex: this.#states.currentStep,
+							actionIndex: i,
+							timestamp: new Date().toISOString(),
+							url: bs?.url ?? '',
+							pageTitle: bs?.title ?? '',
+							pageContent: bs?.content ?? '',
+							action: {
+								name: toolName,
+								input: toolInput as Record<string, unknown>,
+								output: result,
+								durationMs: duration,
+							},
+						})
+					}
 
 					// Emit executed activity
 					this.#emitActivity({

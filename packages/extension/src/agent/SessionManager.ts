@@ -1,9 +1,17 @@
 import { DoubaoClient, DoubaoConfig, tool } from '@page-agent/core'
-import type { AgentActivity, AgentStatus, DoubaoModel, HistoricalEvent, PageAgentTool } from '@page-agent/core'
+import type {
+	AgentActivity,
+	AgentStatus,
+	DoubaoModel,
+	HistoricalEvent,
+	PageAgentTool,
+} from '@page-agent/core'
 import * as z from 'zod/v4'
 
 import { upsertSession } from '@/lib/db'
+import * as TC from '@/trainer/TrainerClient'
 import { Trans } from '@/utils/Trans'
+
 import { debugLogActivity, debugLogEvent, debugLogTaskStart } from '../lib/debugLog'
 import { MultiPageAgent } from './MultiPageAgent'
 import type { ExtConfig } from './useAgent'
@@ -64,7 +72,8 @@ const SEARCH_INSTRUCTION =
 	'</web_search_instructions>'
 
 function buildAgent(config: ExtConfig, sessionName: string, sessionId: string): MultiPageAgent {
-	const { systemInstruction, doubaoApiKey, doubaoSearchEndpoint, searchEnabled, ...agentConfig } = config
+	const { systemInstruction, doubaoApiKey, doubaoSearchEndpoint, searchEnabled, ...agentConfig } =
+		config
 
 	const hasSearch = Boolean(doubaoApiKey && doubaoSearchEndpoint && searchEnabled !== false)
 
@@ -81,6 +90,7 @@ function buildAgent(config: ExtConfig, sessionName: string, sessionId: string): 
 		...agentConfig,
 		sessionName,
 		sessionId,
+		onActionLog: TC.enrichAndQueue,
 		instructions: combinedInstruction ? { system: combinedInstruction } : undefined,
 		...(hasSearch ? { customTools } : {}),
 	})
@@ -156,6 +166,27 @@ export class SessionManager extends EventTarget {
 			session.activity = activity
 			this.#emit()
 		})
+	}
+
+	/** Execute a task in trainer mode — wraps executeInSession with log capture */
+	async executeInTrainerMode(
+		sessionId: string,
+		taskId: string,
+		userRequest: string
+	): Promise<void> {
+		const execId = await TC.startExecution(taskId, userRequest)
+		if (!execId) {
+			// Trainer server offline — fall back to a normal run
+			await this.executeInSession(sessionId, userRequest)
+			return
+		}
+		let success = false
+		try {
+			await this.executeInSession(sessionId, userRequest)
+			success = true
+		} finally {
+			await TC.completeExecution(success)
+		}
 	}
 
 	/** Execute a task in a session — continues the same session history if not the first task */

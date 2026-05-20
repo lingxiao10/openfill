@@ -9,13 +9,16 @@ export type { InvokeOptions, InvokeResult, LLMClient, LLMConfig, Message, Tool }
 export function parseLLMConfig(config: LLMConfig): Required<LLMConfig> {
 	// Runtime validation as defensive programming (types already guarantee these)
 	if (!config.baseURL || !config.apiKey || !config.model) {
-		throw new Error(
-			'LLM configuration required. Please provide: baseURL, apiKey, model.'
-		)
+		throw new Error('LLM configuration required. Please provide: baseURL, apiKey, model.')
 	}
 
 	// Auto-fix known incorrect base URLs
 	let baseURL = config.baseURL.replace(/\/+$/, '') // strip trailing slashes
+	// Strip /chat/completions suffix — users often paste the full endpoint URL instead of the base
+	if (baseURL.endsWith('/chat/completions')) {
+		console.warn('[OpenFill] Auto-correcting baseURL: stripping /chat/completions suffix')
+		baseURL = baseURL.slice(0, -'/chat/completions'.length)
+	}
 	if (baseURL === 'https://openrouter.ai/v1' || baseURL === 'http://openrouter.ai/v1') {
 		console.warn('[OpenFill] Auto-correcting OpenRouter base URL to https://openrouter.ai/api/v1')
 		baseURL = 'https://openrouter.ai/api/v1'

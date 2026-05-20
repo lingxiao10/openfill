@@ -29,6 +29,8 @@ export interface AdvancedConfig {
 	doubaoSearchEndpoint?: string
 	/** Enable the web_search tool. Default: true when doubaoApiKey + doubaoSearchEndpoint are set */
 	searchEnabled?: boolean
+	/** Show the dev server connection indicator in the header. Default: true */
+	showDevServerStatus?: boolean
 }
 
 export interface ExtConfig extends LLMConfig, AdvancedConfig {

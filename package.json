@@ -10,7 +10,8 @@
         "packages/core",
         "packages/page-agent",
         "packages/extension",
-        "packages/website"
+        "packages/website",
+        "packages/trainer"
     ],
     "description": "AI-powered UI agent for web applications",
     "author": "Simon<gaomeng1900>",
@@ -26,6 +27,7 @@
     "scripts": {
         "start": "npm run dev --workspace=@page-agent/website",
         "dev:ext": "npm run dev -w @page-agent/ext",
+        "dev:trainer": "npm run dev --workspace=@page-agent/trainer",
         "dev:demo": "npm run dev:demo --workspace=page-agent",
         "build": "npm run build:libs && npm run build:website",
         "build:libs": "npm run build --workspaces --if-present",

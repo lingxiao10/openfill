@@ -15,7 +15,10 @@ export interface PageAgentTool<TParams = any> {
 	// name: string
 	description: string
 	inputSchema: z.ZodType<TParams>
-	execute: (this: PageAgentCore, args: TParams) => Promise<string | { output: string; subHistory?: HistoricalEvent[] }>
+	execute: (
+		this: PageAgentCore,
+		args: TParams
+	) => Promise<string | { output: string; subHistory?: HistoricalEvent[] }>
 }
 
 export function tool<TParams>(options: PageAgentTool<TParams>): PageAgentTool<TParams> {
@@ -246,23 +249,46 @@ tools.set(
 			key: z
 				.enum([
 					// Basic
-					'Enter', 'Tab', 'Escape', 'Backspace', 'Delete',
+					'Enter',
+					'Tab',
+					'Escape',
+					'Backspace',
+					'Delete',
 					// Navigation
-					'Home', 'End', 'PageUp', 'PageDown',
-					'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+					'Home',
+					'End',
+					'PageUp',
+					'PageDown',
+					'ArrowUp',
+					'ArrowDown',
+					'ArrowLeft',
+					'ArrowRight',
 					// Ctrl shortcuts
-					'Ctrl+A', 'Ctrl+C', 'Ctrl+V', 'Ctrl+X',
-					'Ctrl+Z', 'Ctrl+Y', 'Ctrl+Shift+Z',
-					'Ctrl+Home', 'Ctrl+End',
-					'Ctrl+ArrowLeft', 'Ctrl+ArrowRight',
-					'Ctrl+Backspace', 'Ctrl+Delete',
+					'Ctrl+A',
+					'Ctrl+C',
+					'Ctrl+V',
+					'Ctrl+X',
+					'Ctrl+Z',
+					'Ctrl+Y',
+					'Ctrl+Shift+Z',
+					'Ctrl+Home',
+					'Ctrl+End',
+					'Ctrl+ArrowLeft',
+					'Ctrl+ArrowRight',
+					'Ctrl+Backspace',
+					'Ctrl+Delete',
 					// Shift selection
-					'Shift+Home', 'Shift+End',
-					'Shift+ArrowUp', 'Shift+ArrowDown',
-					'Shift+ArrowLeft', 'Shift+ArrowRight',
+					'Shift+Home',
+					'Shift+End',
+					'Shift+ArrowUp',
+					'Shift+ArrowDown',
+					'Shift+ArrowLeft',
+					'Shift+ArrowRight',
 					// Ctrl+Shift selection
-					'Ctrl+Shift+Home', 'Ctrl+Shift+End',
-					'Ctrl+Shift+ArrowLeft', 'Ctrl+Shift+ArrowRight',
+					'Ctrl+Shift+Home',
+					'Ctrl+Shift+End',
+					'Ctrl+Shift+ArrowLeft',
+					'Ctrl+Shift+ArrowRight',
 				])
 				.describe('Key or key combo to send'),
 			index: z
@@ -293,7 +319,9 @@ tools.set(
 		inputSchema: z.object({
 			task: z
 				.string()
-				.describe('What the sub-agent should accomplish, including the exact value to select/fill.'),
+				.describe(
+					'What the sub-agent should accomplish, including the exact value to select/fill.'
+				),
 			context: z
 				.string()
 				.optional()
@@ -315,15 +343,13 @@ tools.set(
 				customFetch: this.config.customFetch,
 				// Share the same PageController (sub-task operates on the same page)
 				pageController: this.pageController,
-				maxSteps: this.config.subTask?.maxSteps ?? 15,
+				maxSteps: this.config.subTask?.maxSteps ?? 200,
 				language: this.config.language,
 				// Internal: prevent sub-agents from spawning further sub-agents
 				_isSubTask: true,
 			})
 
-			const fullTask = input.context
-				? `${input.task}\n\nContext: ${input.context}`
-				: input.task
+			const fullTask = input.context ? `${input.task}\n\nContext: ${input.context}` : input.task
 
 			// Propagate parent stop() to the sub-agent
 			const onParentAbort = () => subAgent.stop()

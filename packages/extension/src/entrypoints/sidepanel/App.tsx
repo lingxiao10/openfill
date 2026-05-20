@@ -1,4 +1,4 @@
-import { Download, History, Send, Settings, Square } from 'lucide-react'
+import { BookOpen, Download, History, Send, Settings, Square } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -8,9 +8,11 @@ import {
 	InputGroupButton,
 	InputGroupTextarea,
 } from '@/components/ui/input-group'
-
 import { downloadAgentLogs } from '@/lib/downloadLogs'
 import { hasStartupErrors, onStartupError } from '@/lib/startupLog'
+import { runScript } from '@/trainer/ScriptRunner'
+import type { AutomationScript } from '@/trainer/types'
+
 import { useSessionManager } from '../../agent/useSessionManager'
 import { Trans } from '../../utils/Trans'
 import { ConfigPanel } from './components/ConfigPanel'
@@ -18,14 +20,16 @@ import { HistoryDetail } from './components/HistoryDetail'
 import { HistoryList } from './components/HistoryList'
 import { MultiSessionNotice } from './components/MultiSessionNotice'
 import { SessionTabs } from './components/SessionTabs'
+import { TrainerPanel } from './components/TrainerPanel'
 import { ActivityCard, EventCard, TaskText } from './components/cards'
-import { EmptyState, Logo, MotionOverlay, StatusDot } from './components/misc'
+import { DevServerDot, EmptyState, Logo, MotionOverlay, StatusDot } from './components/misc'
 
 type View =
 	| { name: 'chat' }
 	| { name: 'config' }
 	| { name: 'history' }
 	| { name: 'history-detail'; sessionId: string }
+	| { name: 'trainer' }
 
 export default function App() {
 	const [view, setView] = useState<View>({ name: 'chat' })
@@ -44,6 +48,7 @@ export default function App() {
 		createSession,
 		closeSession,
 		execute,
+		executeInTrainerMode,
 		stop,
 		configure,
 	} = useSessionManager()
@@ -121,6 +126,24 @@ export default function App() {
 		return <HistoryDetail sessionId={view.sessionId} onBack={() => setView({ name: 'history' })} />
 	}
 
+	if (view.name === 'trainer') {
+		return (
+			<TrainerPanel
+				onBack={() => setView({ name: 'chat' })}
+				onStartExploration={(taskId, userRequest) => {
+					setView({ name: 'chat' })
+					executeInTrainerMode(taskId, userRequest).catch((err) =>
+						console.error('[App] trainer exploration failed:', err)
+					)
+				}}
+				onRunScript={(script: AutomationScript) => {
+					setView({ name: 'chat' })
+					runScript(script).catch((err) => console.error('[App] script run failed:', err))
+				}}
+			/>
+		)
+	}
+
 	// --- Chat view ---
 
 	const isRunning = status === 'running'
@@ -136,15 +159,28 @@ export default function App() {
 					<span className="text-sm font-medium">OpenFill</span>
 				</div>
 				<div className="flex items-center gap-1">
+					{import.meta.env.DEV && (config?.showDevServerStatus ?? true) && <DevServerDot />}
 					<StatusDot status={status} />
 					<button
 						type="button"
-						onClick={() => config && configure({ ...config, language: config.language === 'zh-CN' ? 'en-US' : 'zh-CN' })}
+						onClick={() =>
+							config &&
+							configure({ ...config, language: config.language === 'zh-CN' ? 'en-US' : 'zh-CN' })
+						}
 						className="text-xs text-muted-foreground hover:text-foreground cursor-pointer px-1 font-medium"
 						title={Trans.t('language')}
 					>
 						{config?.language === 'zh-CN' ? 'EN' : '中'}
 					</button>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						onClick={() => setView({ name: 'trainer' })}
+						className="cursor-pointer"
+						title={Trans.t('trainer')}
+					>
+						<BookOpen className="size-3.5" />
+					</Button>
 					<Button
 						variant="ghost"
 						size="icon-sm"

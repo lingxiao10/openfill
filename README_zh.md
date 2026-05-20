@@ -7,7 +7,7 @@
 ### [🚀 从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/openfill/kckdkidkpahhpkmojcjncjjmghkijdcp)
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome%20应用商店-OpenFill-blue?logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/openfill/kckdkidkpahhpkmojcjncjjmghkijdcp)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
 
 </div>
@@ -201,7 +201,7 @@ page-agent/
 
 ## 开源许可
 
-MIT
+Apache 2.0
 
 ---
 

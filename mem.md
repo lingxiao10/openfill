@@ -43,6 +43,19 @@
 - `utils/Trans.ts`：内联 `{en, zh}` 格式，Trans.t({en,zh})，自动检测浏览器语言，localStorage 存偏好
 - `MultiSessionNotice.tsx`：首次打开弹窗，localStorage 记录是否已展示，国际化
 
+## Trainer 训练与自动化系统（2026-05）
+- `packages/trainer/`：独立 Node.js 服务（port 3002），`npm run dev:trainer` 启动
+  - `TaskManager.ts`：文件存储，data/tasks/{taskId}/ 目录，管理 Task/Execution/Script
+  - `server.ts`：Express REST API，路由：/health, /api/tasks, /api/tasks/:id/executions, /api/tasks/:id/generate-script, /api/tasks/:id/scripts
+- Extension 端：`src/trainer/`
+  - `TrainerClient.ts`：HTTP client (port 3002)，`enrichAndQueue` 捕获 action log + 解析元素属性，`startExecution`/`completeExecution` 包裹任务执行
+  - `parseElementMap.ts`：解析 `[N]<tag attr=val>text />` 格式
+  - `ScriptRunner.ts`：AI-free 脚本回放，直接发 PAGE_CONTROL 消息到 content script
+  - `types.ts`：re-export from packages/trainer/src/types
+- SessionManager.ts：`buildAgent` 加了 `onActionLog: TC.enrichAndQueue`（always safe，无活跃 exec 时 no-op）；新增 `executeInTrainerMode(sessionId, taskId, userRequest)` 方法
+- App.tsx：header 加 BookOpen 按钮 → trainer view；trainer view 渲染 TrainerPanel，`onStartExploration` 调 `executeInTrainerMode`，`onRunScript` 调 `runScript`
+- `core/types.ts`：AgentConfig 加了 `onActionLog?: (entry: ActionLogRaw) => void` 和 `ActionLogRaw` 类型
+
 ## 豆包网络搜索工具（2026-03）
 - 核心客户端：`packages/core/src/utils/doubao/DoubaoClient.ts`（静态方法）, `DoubaoConfig.ts`（setApiKey/getApiKey）, `DoubaoTypes.ts`
 - `DoubaoClient` 和 `DoubaoConfig` 从 `@page-agent/core` 导出（已在 PageAgentCore.ts 中 re-export）
