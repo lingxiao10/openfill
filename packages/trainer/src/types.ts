@@ -122,7 +122,7 @@ export interface TrainerNote {
 	createdAt: string
 }
 
-// ─── AI-authored Sequence ─────────────────────────────────────────────────────
+// ─── AI-authored Sequence (legacy XML format) ────────────────────────────────
 
 export interface TrainerSequence {
 	id: string
@@ -133,6 +133,23 @@ export interface TrainerSequence {
 	params: string[]
 	/** Serialized XML */
 	xml: string
+	createdAt: string
+	updatedAt: string
+}
+
+// ─── AI-authored Script (JS format) ──────────────────────────────────────────
+
+export interface TrainerScript {
+	id: string
+	taskId: string
+	name: string
+	description: string
+	/** Navigate here before running the script */
+	entryUrl?: string
+	/** Runtime param names */
+	params: string[]
+	/** Async function body with access to page API and params */
+	code: string
 	createdAt: string
 	updatedAt: string
 }

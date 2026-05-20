@@ -8,6 +8,7 @@ export type {
 	ElementSelector,
 	Execution,
 	TrainerNote,
+	TrainerScript,
 	TrainerSequence,
 	TrainingTask,
 } from '../../../trainer/src/types'

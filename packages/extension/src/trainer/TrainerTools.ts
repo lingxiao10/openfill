@@ -1,33 +1,43 @@
 /**
  * TrainerTools — AI tools injected only during trainer-mode sessions.
  *
- * Provides: write_note, write_sequence, exec_sequence, finalize_sequence
+ * Tools: write_note, write_script, exec_script, finalize_script, complete_training
  *
- * Module-level draft store holds sequences within the lifetime of one execution.
+ * complete_training MUST be called before done — skipping it marks the session as failed.
  */
 import { tool } from '@page-agent/core'
 import type { PageAgentTool } from '@page-agent/core'
 import * as z from 'zod/v4'
 
 import * as TC from './TrainerClient'
-import { execute } from './sequence/SequenceExecutor'
-import { parse, serialize } from './sequence/SequenceParser'
-import type { SequenceSpec } from './sequence/types'
+import { execute } from './script/ScriptExecutor'
+import type { TrainerScript } from './script/types'
 
-// ─── Draft store (per execution) ─────────────────────────────────────────────
+// ─── Draft store ──────────────────────────────────────────────────────────────
 
-/** Holds sequences written by the AI during the current execution */
-const _draftSequences = new Map<string, SequenceSpec>()
+const _drafts = new Map<string, TrainerScript>()
 
 export function clearDrafts(): void {
-	_draftSequences.clear()
+	_drafts.clear()
 }
 
-export function getDraft(name: string): SequenceSpec | undefined {
-	return _draftSequences.get(name)
+export function getDraft(name: string): TrainerScript | undefined {
+	return _drafts.get(name)
 }
 
-// ─── Chrome sender (production) ──────────────────────────────────────────────
+// ─── Completion status ────────────────────────────────────────────────────────
+
+let _completionStatus: { status: 'success' | 'failed'; reason: string } | null = null
+
+export function getCompletionStatus() {
+	return _completionStatus
+}
+
+export function clearCompletionStatus(): void {
+	_completionStatus = null
+}
+
+// ─── Chrome sender ────────────────────────────────────────────────────────────
 
 const chromeSender = {
 	send(action: string, tabId: number, payload: unknown[]) {
@@ -37,14 +47,15 @@ const chromeSender = {
 	},
 }
 
-// ─── Tool factories ───────────────────────────────────────────────────────────
+// ─── Tool factory ─────────────────────────────────────────────────────────────
 
 export function createTrainerTools(taskId: string): Record<string, PageAgentTool> {
 	return {
 		write_note: buildWriteNoteTool(taskId),
-		write_sequence: buildWriteSequenceTool(),
-		exec_sequence: buildExecSequenceTool(),
-		finalize_sequence: buildFinalizeSequenceTool(taskId),
+		write_script: buildWriteScriptTool(),
+		exec_script: buildExecScriptTool(),
+		finalize_script: buildFinalizeScriptTool(taskId),
+		complete_training: buildCompleteTrainingTool(),
 	}
 }
 
@@ -53,11 +64,10 @@ export function createTrainerTools(taskId: string): Record<string, PageAgentTool
 function buildWriteNoteTool(taskId: string): PageAgentTool {
 	return tool({
 		description:
-			'Write a note to record observations, discoveries, or reasoning about the current task. ' +
-			'Use this to document important findings as you explore. ' +
-			'The final note should summarize how to accomplish the task and provide recommendations.',
+			'Record an observation, discovery, or reasoning note during training. ' +
+			'Use after each exploration run to document selector patterns, page flow, and edge cases.',
 		inputSchema: z.object({
-			content: z.string().describe('The note content to record'),
+			content: z.string().describe('The note content'),
 		}),
 		execute: async ({ content }) => {
 			const { execId } = TC.getActiveExecution()
@@ -69,86 +79,139 @@ function buildWriteNoteTool(taskId: string): PageAgentTool {
 	})
 }
 
-// ─── write_sequence ───────────────────────────────────────────────────────────
+// ─── write_script ─────────────────────────────────────────────────────────────
 
-function buildWriteSequenceTool(): PageAgentTool {
+function buildWriteScriptTool(): PageAgentTool {
 	return tool({
 		description:
-			'Write a reusable automation sequence in XML format. The sequence will be stored in memory ' +
-			'until you finalize it. You can overwrite a sequence by writing it again with the same name. ' +
-			'Format:\n' +
-			'<sequence name="unique_name" description="what it does" entryUrl="https://..." params="param1,param2">\n' +
-			'  <step type="click" selector="text:Button label" />\n' +
-			'  <step type="input" selector="placeholder:Input hint" value="{{param1}}" />\n' +
-			'  <step type="input_enter" selector="css:#search" value="{{param2}}" />\n' +
-			'  <step type="wait" ms="500" />\n' +
-			'  <step type="navigate" value="back" />\n' +
-			'  <step type="scroll" direction="down" pages="2" />\n' +
-			'  <step type="send_keys" value="Escape" />\n' +
-			'</sequence>\n' +
-			'Selector strategies: text:xxx | aria:xxx | placeholder:xxx | role:xxx | css:xxx',
+			'Write a reusable JS automation script stored in memory until finalized.\n\n' +
+			'The script body has access to `page` (PageAPI) and `params` (key/value object).\n\n' +
+			'page API:\n' +
+			'  await page.click("text:Button label")         // by visible text\n' +
+			'  await page.click("aria:Close button")         // by aria-label\n' +
+			'  await page.click("css:#id .cls")              // by CSS\n' +
+			'  await page.input("placeholder:Search", value) // fill input\n' +
+			'  await page.inputEnter("css:input", value)     // fill + press Enter\n' +
+			'  await page.navigate("https://example.com")\n' +
+			'  await page.wait(800)                          // wait ms\n' +
+			'  await page.scroll("down", 2)                  // scroll pages\n' +
+			'  await page.sendKeys("Escape")\n' +
+			'  const ok  = await page.exists("text:Done")    // → boolean\n' +
+			'  const txt = await page.getText("css:.title")  // → string\n' +
+			'  const val = await page.getAttr("css:a", "href")\n' +
+			'  const rows = await page.queryAll("css:.item", ["text","href"])\n' +
+			'  // rows = [{ text: "...", href: "..." }, ...]\n' +
+			'  await page.clickNth("css:.item", 2)           // click 3rd match\n' +
+			'  const url = await page.getCurrentUrl()\n\n' +
+			'Use params.xxx for runtime values (e.g. params.greeting).\n' +
+			'Selectors: text:xxx | aria:xxx | placeholder:xxx | role:xxx | css:xxx',
 		inputSchema: z.object({
-			xml: z.string().describe('The full <sequence>...</sequence> XML'),
+			name: z.string().describe('Unique script name (snake_case)'),
+			description: z.string().describe('What this script does'),
+			entryUrl: z.string().optional().describe('Starting URL — script navigates here first'),
+			params: z
+				.string()
+				.optional()
+				.describe('Comma-separated param names, e.g. "greeting,jobTitle"'),
+			code: z
+				.string()
+				.describe('JS code (async function body). Use await page.xxx() and params.xxx'),
 		}),
-		execute: async ({ xml }) => {
-			const result = parse(xml)
-			if (result instanceof Error) return `Parse error: ${result.message}`
-			_draftSequences.set(result.name, result)
-			const summary = `Sequence "${result.name}" stored with ${result.steps.length} steps.`
-			return summary + (result.params.length ? ` Params: ${result.params.join(', ')}.` : '')
+		execute: async ({ name, description, entryUrl, params, code }) => {
+			const script: TrainerScript = {
+				id: crypto.randomUUID(),
+				taskId: '',
+				name,
+				description,
+				entryUrl: entryUrl || undefined,
+				params: params
+					? params
+							.split(',')
+							.map((p) => p.trim())
+							.filter(Boolean)
+					: [],
+				code,
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			}
+			_drafts.set(name, script)
+			const lines = code.split('\n').length
+			return (
+				`Script "${name}" stored (${lines} lines${entryUrl ? `, entryUrl: ${entryUrl}` : ''}).` +
+				(script.params.length ? ` Params: ${script.params.join(', ')}.` : '')
+			)
 		},
 	})
 }
 
-// ─── exec_sequence ────────────────────────────────────────────────────────────
+// ─── exec_script ──────────────────────────────────────────────────────────────
 
-function buildExecSequenceTool(): PageAgentTool {
+function buildExecScriptTool(): PageAgentTool {
 	return tool({
 		description:
-			'Execute a previously written sequence to test it on the current page. ' +
-			'Pass params as "key=value,key2=value2". Returns step-by-step results.',
+			'Execute a previously written script to test it on the current page. ' +
+			'Pass params as "key=value,key2=value2". Returns step-by-step execution log — read it carefully to debug failures.',
 		inputSchema: z.object({
-			name: z.string().describe('The sequence name to execute'),
+			name: z.string().describe('Script name to execute'),
 			params: z.string().optional().describe('Parameters as "key=value,key2=value2"'),
 		}),
 		execute: async ({ name, params }) => {
-			const seq = _draftSequences.get(name)
-			if (!seq) return `Sequence "${name}" not found. Write it first with write_sequence.`
+			const script = _drafts.get(name)
+			if (!script) return `Script "${name}" not found. Write it first with write_script.`
 
 			const parsedParams = parseParams(params ?? '')
-
 			const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
 			if (!tab?.id) return 'No active tab found.'
 
-			const result = await execute(seq, parsedParams, tab.id, chromeSender)
-
-			const lines = result.steps.map(
-				(s) => `Step ${s.stepIndex + 1} [${s.type}]: ${s.success ? '✓' : '✗'} ${s.error ?? ''}`
-			)
-			lines.push(`\nOverall: ${result.success ? 'SUCCESS' : 'FAILED'}`)
-			return lines.join('\n')
+			const result = await execute(script, parsedParams, tab.id, chromeSender)
+			const lines = result.output.join('\n')
+			const summary = `\nResult: ${result.success ? 'SUCCESS' : 'FAILED'}`
+			return lines + summary + (result.error ? `\nError: ${result.error}` : '')
 		},
 	})
 }
 
-// ─── finalize_sequence ────────────────────────────────────────────────────────
+// ─── finalize_script ──────────────────────────────────────────────────────────
 
-function buildFinalizeSequenceTool(taskId: string): PageAgentTool {
+function buildFinalizeScriptTool(taskId: string): PageAgentTool {
 	return tool({
 		description:
-			'Save a tested sequence permanently to the trainer server. ' +
-			'Only call this after exec_sequence confirms the sequence works correctly.',
+			'Save a tested script permanently to the trainer server. ' +
+			'Only call this after exec_script confirms the script runs correctly (at least 2 successful runs).',
 		inputSchema: z.object({
-			name: z.string().describe('The sequence name to finalize'),
+			name: z.string().describe('Script name to finalize'),
 		}),
 		execute: async ({ name }) => {
-			const seq = _draftSequences.get(name)
-			if (!seq) return `Sequence "${name}" not found. Write it first with write_sequence.`
+			const script = _drafts.get(name)
+			if (!script) return `Script "${name}" not found. Write it first with write_script.`
 
-			const xml = serialize(seq)
-			const saved = await TC.saveSequence(taskId, seq.name, seq.description ?? '', seq.params, xml)
-			if (!saved) return 'Failed to save sequence (trainer server offline?)'
-			return `Sequence "${name}" saved permanently with ${seq.steps.length} steps.`
+			const saved = await TC.saveTrainerScript(taskId, script)
+			if (!saved) return 'Failed to save script (trainer server offline?)'
+			return `Script "${name}" saved permanently.`
+		},
+	})
+}
+
+// ─── complete_training ────────────────────────────────────────────────────────
+
+function buildCompleteTrainingTool(): PageAgentTool {
+	return tool({
+		description:
+			'REQUIRED: Mark this training session as complete. ' +
+			'Call with status="success" after finalize_script saves a working script. ' +
+			'Call with status="failed" with a reason if you cannot produce a working script. ' +
+			'You MUST call this before calling done — skipping it marks the session as failed.',
+		inputSchema: z.object({
+			status: z.enum(['success', 'failed']),
+			reason: z
+				.string()
+				.describe('Brief summary: what was built (success) or why it failed (failed)'),
+		}),
+		execute: async ({ status, reason }) => {
+			_completionStatus = { status, reason }
+			return status === 'success'
+				? `✓ Training complete: ${reason}`
+				: `✗ Training failed: ${reason}`
 		},
 	})
 }

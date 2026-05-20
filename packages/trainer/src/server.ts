@@ -171,6 +171,30 @@ export function createServer() {
 		res.json({ ok: true })
 	})
 
+	// ── AI Scripts ─────────────────────────────────────────────────────────────
+
+	app.get('/api/tasks/:id/ai-scripts', (req, res) => {
+		res.json(tm.listTrainerScripts(req.params.id))
+	})
+
+	app.post('/api/tasks/:id/ai-scripts', (req, res) => {
+		const script = req.body as Parameters<typeof tm.saveTrainerScript>[1]
+		if (!script?.name || !script?.code) {
+			res.status(400).json({ error: 'name and code are required' })
+			return
+		}
+		res.status(201).json(tm.saveTrainerScript(req.params.id, script))
+	})
+
+	app.delete('/api/tasks/:id/ai-scripts/:sid', (req, res) => {
+		const ok = tm.deleteTrainerScript(req.params.id, req.params.sid)
+		if (!ok) {
+			res.status(404).json({ error: 'Not found' })
+			return
+		}
+		res.json({ ok: true })
+	})
+
 	// Health check (also used by extension to detect trainer availability)
 	app.get('/health', (_req, res) => {
 		res.json({ ok: true, service: 'page-agent-trainer', version: '1.0.0' })

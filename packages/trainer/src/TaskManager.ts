@@ -17,6 +17,7 @@ import type {
 	Execution,
 	StartExecutionPayload,
 	TrainerNote,
+	TrainerScript,
 	TrainerSequence,
 	TrainingTask,
 } from './types.js'
@@ -350,6 +351,49 @@ export function saveSequence(
 
 export function deleteSequence(taskId: string, seqId: string): boolean {
 	const path = join(sequencesDir(taskId), `${seqId}.json`)
+	if (!existsSync(path)) return false
+	unlinkSync(path)
+	return true
+}
+
+// ─── AI Scripts ───────────────────────────────────────────────────────────────
+
+function trainerScriptsDir(taskId: string) {
+	return join(taskDir(taskId), 'ai-scripts')
+}
+
+export function listTrainerScripts(taskId: string): TrainerScript[] {
+	const dir = trainerScriptsDir(taskId)
+	ensureDir(dir)
+	return readdirSync(dir)
+		.filter((f) => f.endsWith('.json'))
+		.map((f) => {
+			try {
+				return readJSON<TrainerScript>(join(dir, f))
+			} catch {
+				return null
+			}
+		})
+		.filter(Boolean) as TrainerScript[]
+}
+
+export function saveTrainerScript(taskId: string, script: TrainerScript): TrainerScript {
+	const dir = trainerScriptsDir(taskId)
+	ensureDir(dir)
+	const existing = listTrainerScripts(taskId).find((s) => s.name === script.name)
+	const toSave: TrainerScript = {
+		...script,
+		id: existing?.id ?? script.id,
+		taskId,
+		createdAt: existing?.createdAt ?? script.createdAt,
+		updatedAt: new Date().toISOString(),
+	}
+	writeJSON(join(dir, `${toSave.id}.json`), toSave)
+	return toSave
+}
+
+export function deleteTrainerScript(taskId: string, scriptId: string): boolean {
+	const path = join(trainerScriptsDir(taskId), `${scriptId}.json`)
 	if (!existsSync(path)) return false
 	unlinkSync(path)
 	return true

@@ -11,7 +11,7 @@ import * as z from 'zod/v4'
 import { upsertSession } from '@/lib/db'
 import * as TC from '@/trainer/TrainerClient'
 import { buildTrainerPrompt, DEFAULT_TRAINER_PROMPT } from '@/trainer/trainerPrompt'
-import { clearDrafts, createTrainerTools } from '@/trainer/TrainerTools'
+import { clearCompletionStatus, clearDrafts, createTrainerTools, getCompletionStatus } from '@/trainer/TrainerTools'
 import { Trans } from '@/utils/Trans'
 
 import { debugLogActivity, debugLogEvent, debugLogTaskStart } from '../lib/debugLog'
@@ -211,10 +211,12 @@ export class SessionManager extends EventTarget {
 		let success = false
 		try {
 			await this.executeInSession(sessionId, userRequest)
-			success = true
+			// Success only if AI explicitly called complete_training with status="success"
+			success = getCompletionStatus()?.status === 'success'
 		} finally {
 			await TC.completeExecution(success)
 			clearDrafts()
+			clearCompletionStatus()
 			// Restore standard agent (without trainer tools)
 			entry.agent.dispose()
 			entry.agent = buildAgent(this.#config!, entry.session.name, sessionId)

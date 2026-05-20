@@ -11,9 +11,8 @@ import {
 import { downloadAgentLogs } from '@/lib/downloadLogs'
 import { hasStartupErrors, onStartupError } from '@/lib/startupLog'
 import { runScript } from '@/trainer/ScriptRunner'
-import { execute as executeSequence } from '@/trainer/sequence/SequenceExecutor'
-import { parse } from '@/trainer/sequence/SequenceParser'
-import type { AutomationScript, TrainerSequence } from '@/trainer/types'
+import { execute as executeTrainerScript } from '@/trainer/script/ScriptExecutor'
+import type { AutomationScript, TrainerScript } from '@/trainer/types'
 
 import { useSessionManager } from '../../agent/useSessionManager'
 import { Trans } from '../../utils/Trans'
@@ -149,17 +148,12 @@ export default function App() {
 					setView({ name: 'chat' })
 					runScript(script).catch((err) => console.error('[App] script run failed:', err))
 				}}
-				onRunSequence={(seq: TrainerSequence) => {
+				onRunTrainerScript={(script: TrainerScript) => {
 					setView({ name: 'chat' })
-					const parsed = parse(seq.xml)
-					if (parsed instanceof Error) {
-						console.error('[App] sequence parse failed:', parsed.message)
-						return
-					}
 					chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
 						if (!tab?.id) return
-						executeSequence(parsed, {}, tab.id, chromeSender).catch((err) =>
-							console.error('[App] sequence run failed:', err)
+						executeTrainerScript(script, {}, tab.id, chromeSender).catch((err) =>
+							console.error('[App] trainer script run failed:', err)
 						)
 					})
 				}}

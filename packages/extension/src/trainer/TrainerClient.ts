@@ -1,7 +1,7 @@
 import type { ActionLogRaw } from '@page-agent/core'
 
 import { getElementDetails } from './parseElementMap'
-import type { ActionLogEntry, AutomationScript, TrainingTask } from './types'
+import type { ActionLogEntry, AutomationScript, TrainerScript, TrainingTask } from './types'
 
 const BASE = 'http://127.0.0.1:3002'
 const TIMEOUT = 4000
@@ -126,24 +126,18 @@ export function addNote(taskId: string, execId: string, content: string): Promis
 	return api('POST', `/api/tasks/${taskId}/executions/${execId}/notes`, { content })
 }
 
-// ─── AI Sequences ─────────────────────────────────────────────────────────────
+// ─── AI Scripts ───────────────────────────────────────────────────────────────
 
-export function saveSequence(
-	taskId: string,
-	name: string,
-	description: string,
-	params: string[],
-	xml: string
-): Promise<unknown> {
-	return api('POST', `/api/tasks/${taskId}/sequences`, { name, description, params, xml })
+export function saveTrainerScript(taskId: string, script: TrainerScript): Promise<TrainerScript | null> {
+	return api<TrainerScript>('POST', `/api/tasks/${taskId}/ai-scripts`, { ...script, taskId })
 }
 
-export function listSequences(taskId: string): Promise<unknown[] | null> {
-	return api<unknown[]>('GET', `/api/tasks/${taskId}/sequences`)
+export function listTrainerScripts(taskId: string): Promise<TrainerScript[] | null> {
+	return api<TrainerScript[]>('GET', `/api/tasks/${taskId}/ai-scripts`)
 }
 
-export function deleteSequence(taskId: string, seqId: string): Promise<unknown> {
-	return api('DELETE', `/api/tasks/${taskId}/sequences/${seqId}`)
+export function deleteTrainerScript(taskId: string, scriptId: string): Promise<unknown> {
+	return api('DELETE', `/api/tasks/${taskId}/ai-scripts/${scriptId}`)
 }
 
 // ─── Task update ──────────────────────────────────────────────────────────────

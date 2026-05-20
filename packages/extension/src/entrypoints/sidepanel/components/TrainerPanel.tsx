@@ -5,23 +5,23 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import * as TC from '@/trainer/TrainerClient'
-import type { AutomationScript, TrainerSequence, TrainingTask } from '@/trainer/types'
+import type { AutomationScript, TrainerScript, TrainingTask } from '@/trainer/types'
 import { Trans } from '@/utils/Trans'
 
 interface TrainerPanelProps {
 	onStartExploration: (taskId: string, userRequest: string) => void
 	onRunScript: (script: AutomationScript) => void
-	onRunSequence: (seq: TrainerSequence) => void
+	onRunTrainerScript: (script: TrainerScript) => void
 	onBack: () => void
 }
 
 type View = 'list' | 'new' | 'detail'
-type DetailTab = 'scripts' | 'sequences'
+type DetailTab = 'ai-scripts' | 'scripts'
 
 export function TrainerPanel({
 	onStartExploration,
 	onRunScript,
-	onRunSequence,
+	onRunTrainerScript,
 	onBack,
 }: TrainerPanelProps) {
 	const [view, setView] = useState<View>('list')
@@ -29,8 +29,8 @@ export function TrainerPanel({
 	const [tasks, setTasks] = useState<TrainingTask[]>([])
 	const [selectedTask, setSelectedTask] = useState<TrainingTask | null>(null)
 	const [scripts, setScripts] = useState<AutomationScript[]>([])
-	const [sequences, setSequences] = useState<TrainerSequence[]>([])
-	const [detailTab, setDetailTab] = useState<DetailTab>('sequences')
+	const [aiScripts, setAiScripts] = useState<TrainerScript[]>([])
+	const [detailTab, setDetailTab] = useState<DetailTab>('ai-scripts')
 	const [generating, setGenerating] = useState(false)
 
 	// New / Edit task form
@@ -56,7 +56,7 @@ export function TrainerPanel({
 	useEffect(() => {
 		if (!selectedTask) return
 		TC.listScripts(selectedTask.id).then((s) => setScripts(s ?? []))
-		TC.listSequences(selectedTask.id).then((s) => setSequences((s as TrainerSequence[]) ?? []))
+		TC.listTrainerScripts(selectedTask.id).then((s) => setAiScripts(s ?? []))
 	}, [selectedTask])
 
 	// ── Form helpers ──────────────────────────────────────────────────────────
@@ -309,13 +309,13 @@ export function TrainerPanel({
 							<button
 								className={cn(
 									'flex-1 py-1.5 transition-colors',
-									detailTab === 'sequences'
+									detailTab === 'ai-scripts'
 										? 'bg-primary text-primary-foreground'
 										: 'hover:bg-muted'
 								)}
-								onClick={() => setDetailTab('sequences')}
+								onClick={() => setDetailTab('ai-scripts')}
 							>
-								{Trans.t('trainer_sequences')} ({sequences.length})
+								{Trans.t('trainer_ai_scripts')} ({aiScripts.length})
 							</button>
 							<button
 								className={cn(
@@ -328,22 +328,27 @@ export function TrainerPanel({
 							</button>
 						</div>
 
-						{/* Sequences tab */}
-						{detailTab === 'sequences' && (
+						{/* AI Scripts tab */}
+						{detailTab === 'ai-scripts' && (
 							<div className="flex flex-col gap-2">
-								{sequences.length === 0 && (
+								{aiScripts.length === 0 && (
 									<p className="text-xs text-muted-foreground text-center py-4">
-										{Trans.t('trainer_no_sequences')}
+										{Trans.t('trainer_no_ai_scripts')}
 									</p>
 								)}
-								{sequences.map((seq) => (
-									<div key={seq.id} className="rounded-md border p-3 flex flex-col gap-2">
+								{aiScripts.map((script) => (
+									<div key={script.id} className="rounded-md border p-3 flex flex-col gap-2">
 										<div>
-											<p className="text-xs font-medium">{seq.name}</p>
-											<p className="text-[10px] text-muted-foreground">{seq.description}</p>
-											{seq.params.length > 0 && (
+											<p className="text-xs font-medium">{script.name}</p>
+											<p className="text-[10px] text-muted-foreground">{script.description}</p>
+											{script.params.length > 0 && (
 												<p className="text-[10px] text-blue-500 mt-0.5">
-													params: {seq.params.join(', ')}
+													params: {script.params.join(', ')}
+												</p>
+											)}
+											{script.entryUrl && (
+												<p className="text-[10px] text-muted-foreground truncate mt-0.5">
+													↳ {script.entryUrl}
 												</p>
 											)}
 										</div>
@@ -352,7 +357,7 @@ export function TrainerPanel({
 												variant="default"
 												size="sm"
 												className="h-7 text-[11px] gap-1 flex-1"
-												onClick={() => onRunSequence(seq)}
+												onClick={() => onRunTrainerScript(script)}
 											>
 												<Play className="size-3" />
 												{Trans.t('trainer_run_script')}
@@ -362,8 +367,8 @@ export function TrainerPanel({
 												size="icon-sm"
 												className="h-7 w-7 shrink-0"
 												onClick={async () => {
-													await TC.deleteSequence(selectedTask.id, seq.id)
-													setSequences((prev) => prev.filter((s) => s.id !== seq.id))
+													await TC.deleteTrainerScript(selectedTask.id, script.id)
+													setAiScripts((prev) => prev.filter((s) => s.id !== script.id))
 												}}
 											>
 												<Trash2 className="size-3 text-destructive" />
@@ -374,7 +379,7 @@ export function TrainerPanel({
 							</div>
 						)}
 
-						{/* Scripts tab */}
+						{/* Generated Scripts tab */}
 						{detailTab === 'scripts' && (
 							<div className="flex flex-col gap-2">
 								<div className="flex items-center justify-between">
