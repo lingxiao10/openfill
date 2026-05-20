@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { DEMO_API_KEY, DEMO_BASE_URL, DEMO_MODEL, isTestingEndpoint } from '@/agent/constants'
 import type { ExtConfig, LanguagePreference } from '@/agent/useAgent'
+import { DEFAULT_TRAINER_PROMPT } from '@/trainer/trainerPrompt'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -33,7 +34,7 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 		config?.doubaoSearchEndpoint ?? 'doubao-seed-1-8-251228'
 	)
 	const [searchEnabled, setSearchEnabled] = useState(config?.searchEnabled ?? false)
-	const [trainerSystemPrompt, setTrainerSystemPrompt] = useState(config?.trainerSystemPrompt ?? '')
+	const [trainerSystemPrompt, setTrainerSystemPrompt] = useState(config?.trainerSystemPrompt ?? DEFAULT_TRAINER_PROMPT)
 	const [showDoubaoKey, setShowDoubaoKey] = useState(false)
 	const [advancedOpen, setAdvancedOpen] = useState(false)
 	const [saving, setSaving] = useState(false)
@@ -56,7 +57,7 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 		setDoubaoApiKey(config?.doubaoApiKey ?? '')
 		setDoubaoSearchEndpoint(config?.doubaoSearchEndpoint ?? 'doubao-seed-1-8-251228')
 		setSearchEnabled(config?.searchEnabled ?? false)
-		setTrainerSystemPrompt(config?.trainerSystemPrompt ?? '')
+		setTrainerSystemPrompt(config?.trainerSystemPrompt ?? DEFAULT_TRAINER_PROMPT)
 	}, [config])
 
 	useEffect(() => {
