@@ -29,6 +29,12 @@ export async function execute(
 	const resolved = applyParams(seq, params)
 	const results: StepResult[] = []
 
+	// Navigate to entry URL first if specified
+	if (resolved.entryUrl) {
+		await sender.send('navigate', tabId, [{ url: resolved.entryUrl }])
+		await delay(2000)
+	}
+
 	for (let i = 0; i < resolved.steps.length; i++) {
 		const step = resolved.steps[i]
 		const result = await runStep(step, i, tabId, sender)

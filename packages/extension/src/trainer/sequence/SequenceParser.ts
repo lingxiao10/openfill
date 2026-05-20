@@ -33,7 +33,8 @@ export function parse(xml: string): SequenceSpec | Error {
 			.map((p) => p.trim())
 			.filter(Boolean)
 
-		return { name, description, params, steps }
+		const entryUrl = extractAttr(xml, 'sequence', 'entryUrl')
+		return { name, description, entryUrl, params, steps }
 	} catch (e) {
 		return e instanceof Error ? e : new Error(String(e))
 	}
@@ -46,6 +47,7 @@ export function serialize(seq: SequenceSpec): string {
 	const attrs = [
 		`name="${esc(seq.name)}"`,
 		seq.description ? `description="${esc(seq.description)}"` : '',
+		seq.entryUrl ? `entryUrl="${esc(seq.entryUrl)}"` : '',
 		seq.params.length ? `params="${esc(seq.params.join(','))}"` : '',
 	]
 		.filter(Boolean)

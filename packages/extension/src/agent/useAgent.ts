@@ -31,6 +31,8 @@ export interface AdvancedConfig {
 	searchEnabled?: boolean
 	/** Show the dev server connection indicator in the header. Default: true */
 	showDevServerStatus?: boolean
+	/** System prompt injected when running in trainer mode. Supports {{taskName}}, {{taskDescription}}, {{taskUrl}} */
+	trainerSystemPrompt?: string
 }
 
 export interface ExtConfig extends LLMConfig, AdvancedConfig {

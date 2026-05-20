@@ -10,6 +10,7 @@ import * as z from 'zod/v4'
 
 import { upsertSession } from '@/lib/db'
 import * as TC from '@/trainer/TrainerClient'
+import { buildTrainerPrompt, DEFAULT_TRAINER_PROMPT } from '@/trainer/trainerPrompt'
 import { clearDrafts, createTrainerTools } from '@/trainer/TrainerTools'
 import { Trans } from '@/utils/Trans'
 
@@ -76,7 +77,8 @@ function buildAgent(
 	config: ExtConfig,
 	sessionName: string,
 	sessionId: string,
-	extraTools?: Record<string, PageAgentTool>
+	extraTools?: Record<string, PageAgentTool>,
+	extraInstruction?: string,
 ): MultiPageAgent {
 	const { systemInstruction, doubaoApiKey, doubaoSearchEndpoint, searchEnabled, ...agentConfig } =
 		config
@@ -88,7 +90,7 @@ function buildAgent(
 		customTools.web_search = buildSearchTool(doubaoApiKey!, doubaoSearchEndpoint!)
 	}
 
-	const combinedInstruction = [systemInstruction, hasSearch ? SEARCH_INSTRUCTION : '']
+	const combinedInstruction = [systemInstruction, hasSearch ? SEARCH_INSTRUCTION : '', extraInstruction]
 		.filter(Boolean)
 		.join('\n\n')
 
@@ -190,11 +192,20 @@ export class SessionManager extends EventTarget {
 			return
 		}
 
-		// Rebuild agent with trainer tools injected
+		// Build trainer system prompt with task context substituted in
+		const task = await TC.getTask(taskId)
+		const promptTemplate = this.#config?.trainerSystemPrompt || DEFAULT_TRAINER_PROMPT
+		const trainerPrompt = buildTrainerPrompt(promptTemplate, {
+			name: task?.name ?? taskId,
+			description: task?.description ?? userRequest,
+			url: task?.url ?? '',
+		})
+
+		// Rebuild agent with trainer tools + trainer prompt injected
 		clearDrafts()
 		const trainerTools = createTrainerTools(taskId)
 		entry.agent.dispose()
-		entry.agent = buildAgent(this.#config!, entry.session.name, sessionId, trainerTools)
+		entry.agent = buildAgent(this.#config!, entry.session.name, sessionId, trainerTools, trainerPrompt)
 		this.#bindAgent(entry)
 
 		let success = false

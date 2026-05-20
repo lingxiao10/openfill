@@ -77,7 +77,7 @@ function buildWriteSequenceTool(): PageAgentTool {
 			'Write a reusable automation sequence in XML format. The sequence will be stored in memory ' +
 			'until you finalize it. You can overwrite a sequence by writing it again with the same name. ' +
 			'Format:\n' +
-			'<sequence name="unique_name" description="what it does" params="param1,param2">\n' +
+			'<sequence name="unique_name" description="what it does" entryUrl="https://..." params="param1,param2">\n' +
 			'  <step type="click" selector="text:Button label" />\n' +
 			'  <step type="input" selector="placeholder:Input hint" value="{{param1}}" />\n' +
 			'  <step type="input_enter" selector="css:#search" value="{{param2}}" />\n' +

@@ -36,6 +36,8 @@ export interface StepSpec {
 export interface SequenceSpec {
 	name: string
 	description?: string
+	/** Starting URL — the sequence navigates here before running steps */
+	entryUrl?: string
 	/** Comma-separated param names, e.g. "greeting,jobTitle" */
 	params: string[]
 	steps: StepSpec[]

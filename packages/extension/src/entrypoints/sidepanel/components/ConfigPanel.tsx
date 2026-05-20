@@ -33,6 +33,7 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 		config?.doubaoSearchEndpoint ?? 'doubao-seed-1-8-251228'
 	)
 	const [searchEnabled, setSearchEnabled] = useState(config?.searchEnabled ?? false)
+	const [trainerSystemPrompt, setTrainerSystemPrompt] = useState(config?.trainerSystemPrompt ?? '')
 	const [showDoubaoKey, setShowDoubaoKey] = useState(false)
 	const [advancedOpen, setAdvancedOpen] = useState(false)
 	const [saving, setSaving] = useState(false)
@@ -55,6 +56,7 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 		setDoubaoApiKey(config?.doubaoApiKey ?? '')
 		setDoubaoSearchEndpoint(config?.doubaoSearchEndpoint ?? 'doubao-seed-1-8-251228')
 		setSearchEnabled(config?.searchEnabled ?? false)
+		setTrainerSystemPrompt(config?.trainerSystemPrompt ?? '')
 	}, [config])
 
 	useEffect(() => {
@@ -98,6 +100,7 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 				experimentalLlmsTxt,
 				showDownloadLogs,
 				showDevServerStatus,
+				trainerSystemPrompt: trainerSystemPrompt || undefined,
 				doubaoApiKey: doubaoApiKey || undefined,
 				doubaoSearchEndpoint: doubaoSearchEndpoint || undefined,
 				searchEnabled,
@@ -243,6 +246,17 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 							onChange={(e) => setSystemInstruction(e.target.value)}
 							rows={3}
 							className="text-xs rounded-md border border-input bg-background px-3 py-2 resize-y min-h-[60px]"
+						/>
+					</div>
+					<div className="flex flex-col gap-1.5">
+						<label className="text-xs text-muted-foreground">{Trans.t('trainer_prompt')}</label>
+						<p className="text-[10px] text-muted-foreground -mt-1">{Trans.t('trainer_prompt_desc')}</p>
+						<textarea
+							placeholder={Trans.t('trainer_prompt_ph')}
+							value={trainerSystemPrompt}
+							onChange={(e) => setTrainerSystemPrompt(e.target.value)}
+							rows={5}
+							className="text-xs rounded-md border border-input bg-background px-3 py-2 resize-y min-h-[80px] font-mono"
 						/>
 					</div>
 					<label className="flex items-center justify-between cursor-pointer">

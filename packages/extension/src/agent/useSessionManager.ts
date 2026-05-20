@@ -128,6 +128,7 @@ export function useSessionManager(): UseSessionManagerResult {
 			doubaoApiKey,
 			doubaoSearchEndpoint,
 			searchEnabled,
+			trainerSystemPrompt,
 			...llmConfig
 		}: ExtConfig) => {
 			await chrome.storage.local.set({ llmConfig })
@@ -144,6 +145,7 @@ export function useSessionManager(): UseSessionManagerResult {
 				doubaoApiKey,
 				doubaoSearchEndpoint,
 				searchEnabled,
+				trainerSystemPrompt,
 			}
 			await chrome.storage.local.set({ advancedConfig })
 			const newConfig: ExtConfig = { ...llmConfig, ...advancedConfig, language }

@@ -37,6 +37,10 @@ export function listTasks(): Promise<TrainingTask[] | null> {
 	return api<TrainingTask[]>('GET', '/api/tasks')
 }
 
+export function getTask(taskId: string): Promise<{ name: string; description: string; url: string } | null> {
+	return api<{ name: string; description: string; url: string }>('GET', `/api/tasks/${taskId}`)
+}
+
 export function createTask(
 	name: string,
 	url: string,
