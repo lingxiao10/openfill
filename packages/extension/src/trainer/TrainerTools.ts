@@ -86,25 +86,36 @@ function buildWriteScriptTool(): PageAgentTool {
 		description:
 			'Write a reusable JS automation script stored in memory until finalized.\n\n' +
 			'The script body has access to `page` (PageAPI) and `params` (key/value object).\n\n' +
+			'SELECTOR GUIDE — use getCleanHtml() first to discover stable selectors:\n' +
+			'  CSS-first: start with . # [ and it goes directly to querySelector\n' +
+			'    ".btn-primary"              → document.querySelector(".btn-primary")\n' +
+			'    "#submit-btn"               → document.querySelector("#submit-btn")\n' +
+			'    "[data-testid=submit]"      → document.querySelector("[data-testid=submit]")\n' +
+			'  Strategy prefix:\n' +
+			'    "text:Button label"         → by visible text (exact)\n' +
+			'    "textContains:Submit"       → by partial text\n' +
+			'    "aria:Close button"         → by aria-label\n' +
+			'    "placeholder:Search..."     → by placeholder\n' +
+			'    "role:button"               → by ARIA role\n' +
+			'    "css:#id .cls"              → explicit CSS prefix\n\n' +
 			'page API:\n' +
-			'  await page.click("text:Button label")         // by visible text\n' +
-			'  await page.click("aria:Close button")         // by aria-label\n' +
-			'  await page.click("css:#id .cls")              // by CSS\n' +
-			'  await page.input("placeholder:Search", value) // fill input\n' +
-			'  await page.inputEnter("css:input", value)     // fill + press Enter\n' +
+			'  const html = await page.getCleanHtml()         // stripped HTML snapshot — use to find ids/classes\n' +
+			'  const html = await page.getCleanHtml(".scope") // limit to a container\n' +
+			'  await page.click(".btn-apply")                 // CSS-first (preferred)\n' +
+			'  await page.click("text:Submit")                // by text\n' +
+			'  await page.input("#search-input", value)       // fill input\n' +
+			'  await page.inputEnter(".search-box", value)    // fill + press Enter\n' +
 			'  await page.navigate("https://example.com")\n' +
-			'  await page.wait(800)                          // wait ms\n' +
-			'  await page.scroll("down", 2)                  // scroll pages\n' +
+			'  await page.wait(800)                           // wait ms\n' +
+			'  await page.scroll("down", 2)                   // scroll pages\n' +
 			'  await page.sendKeys("Escape")\n' +
-			'  const ok  = await page.exists("text:Done")    // → boolean\n' +
-			'  const txt = await page.getText("css:.title")  // → string\n' +
-			'  const val = await page.getAttr("css:a", "href")\n' +
-			'  const rows = await page.queryAll("css:.item", ["text","href"])\n' +
-			'  // rows = [{ text: "...", href: "..." }, ...]\n' +
-			'  await page.clickNth("css:.item", 2)           // click 3rd match\n' +
-			'  const url = await page.getCurrentUrl()\n\n' +
-			'Use params.xxx for runtime values (e.g. params.greeting).\n' +
-			'Selectors: text:xxx | aria:xxx | placeholder:xxx | role:xxx | css:xxx',
+			'  const ok   = await page.exists(".modal")       // → boolean\n' +
+			'  const txt  = await page.getText(".title")      // → string\n' +
+			'  const val  = await page.getAttr("a.link", "href")\n' +
+			'  const rows = await page.queryAll(".item", ["text","href"])\n' +
+			'  await page.clickNth(".item", 2)                // click 3rd match (0-indexed)\n' +
+			'  const url  = await page.getCurrentUrl()\n\n' +
+			'Use params.xxx for runtime values (e.g. params.greeting).',
 		inputSchema: z.object({
 			name: z.string().describe('Unique script name (snake_case)'),
 			description: z.string().describe('What this script does'),
