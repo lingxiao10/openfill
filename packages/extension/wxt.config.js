@@ -82,5 +82,9 @@ export default defineConfig({
 		side_panel: {
 			default_path: 'sidepanel/index.html',
 		},
+		// Allow new Function() / eval in sidepanel for AI script execution
+		content_security_policy: {
+			extension_pages: "script-src 'self' 'unsafe-eval'; object-src 'self'",
+		},
 	},
 })
