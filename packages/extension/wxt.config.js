@@ -61,6 +61,7 @@ export default defineConfig({
 			'tabGroups',
 			'sidePanel',
 			'storage',
+			'scripting',
 			...(isDebuggerMode ? ['debugger'] : []),
 		],
 		host_permissions: ['<all_urls>'],

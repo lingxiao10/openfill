@@ -1,6 +1,10 @@
+import type { Server } from 'node:http'
 import cors from 'cors'
 import express from 'express'
 
+import { bridge } from './bridge/BridgeServer.js'
+import { ScriptRunner } from './runner/ScriptRunner.js'
+import { ScriptStore } from './runner/ScriptStore.js'
 import * as tm from './TaskManager.js'
 import type {
 	AddLogsPayload,
@@ -8,6 +12,10 @@ import type {
 	CreateTaskPayload,
 	StartExecutionPayload,
 } from './types.js'
+
+export function attachBridge(httpServer: Server): void {
+	bridge.attach(httpServer)
+}
 
 export function createServer() {
 	const app = express()
@@ -198,6 +206,62 @@ export function createServer() {
 	// Health check (also used by extension to detect trainer availability)
 	app.get('/health', (_req, res) => {
 		res.json({ ok: true, service: 'page-agent-trainer', version: '1.0.0' })
+	})
+
+	// ─── Bridge status ─────────────────────────────────────────────────────────
+	app.get('/api/bridge/status', (_req, res) => {
+		res.json({ connected: bridge.connected })
+	})
+
+	// ─── Browser commands ──────────────────────────────────────────────────────
+	app.post('/api/browser/cmd', async (req, res) => {
+		const { command, payload } = req.body as { command: string; payload?: unknown }
+		if (!bridge.connected) {
+			res.status(503).json({ error: 'Extension not connected' })
+			return
+		}
+		try {
+			const result = await bridge.send(command, payload)
+			res.json(result)
+		} catch (err) {
+			res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+		}
+	})
+
+	// ─── Automation scripts ────────────────────────────────────────────────────
+	app.get('/api/scripts', (_req, res) => {
+		res.json(ScriptStore.list())
+	})
+
+	app.post('/api/scripts', (req, res) => {
+		const { meta, code } = req.body as { meta: Parameters<typeof ScriptStore.save>[0]; code: string }
+		const saved = ScriptStore.save(meta, code)
+		res.json(saved)
+	})
+
+	app.get('/api/scripts/:id', (req, res) => {
+		const s = ScriptStore.get(req.params.id)
+		if (!s) {
+			res.status(404).json({ error: 'Not found' })
+			return
+		}
+		res.json({ ...s, code: ScriptStore.getCode(req.params.id) })
+	})
+
+	app.delete('/api/scripts/:id', (req, res) => {
+		const ok = ScriptStore.delete(req.params.id)
+		res.json({ ok })
+	})
+
+	app.post('/api/scripts/:id/run', async (req, res) => {
+		const params = (req.body as { params?: Record<string, string> })?.params ?? {}
+		const runner = new ScriptRunner()
+		try {
+			const result = await runner.run(req.params.id, params)
+			res.json(result)
+		} catch (err) {
+			res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+		}
 	})
 
 	return app

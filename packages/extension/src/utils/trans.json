@@ -134,5 +134,13 @@
   "doubao_api_key":            { "en": "Doubao API Key",                  "zh": "豆包 API Key" },
   "doubao_search_endpoint":    { "en": "Search Endpoint ID",              "zh": "搜索接入点 ID" },
   "doubao_search_endpoint_ph": { "en": "doubao-seed-1-8-251228",           "zh": "doubao-seed-1-8-251228" },
-  "doubao_get_key":            { "en": "Get API Key →",                   "zh": "获取 API Key →" }
+  "doubao_get_key":            { "en": "Get API Key →",                   "zh": "获取 API Key →" },
+
+  "bridge_scripts":            { "en": "Scripts",                         "zh": "自动化脚本" },
+  "bridge_run":                { "en": "Run",                             "zh": "运行" },
+  "bridge_running":            { "en": "Running…",                        "zh": "运行中…" },
+  "bridge_success":            { "en": "Success",                         "zh": "成功" },
+  "bridge_failed":             { "en": "Failed",                          "zh": "失败" },
+  "bridge_no_scripts":         { "en": "No scripts yet",                  "zh": "暂无脚本" },
+  "bridge_offline":            { "en": "Trainer server offline",          "zh": "训练服务器未启动" }
 }

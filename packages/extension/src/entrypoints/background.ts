@@ -1,5 +1,6 @@
 import { handlePageControlMessage } from '@/agent/RemotePageController.background'
 import { handleTabControlMessage, setupTabChangeEvents } from '@/agent/TabsController.background'
+import { bridgeClient } from '@/trainer/BridgeClient'
 
 export default defineBackground(() => {
 	console.log('[Background] Service Worker started')
@@ -7,6 +8,9 @@ export default defineBackground(() => {
 	// tab change events
 
 	setupTabChangeEvents()
+
+	// trainer bridge — connect to local trainer server for remote control
+	bridgeClient.start()
 
 	// generate user auth token
 
