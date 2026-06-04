@@ -53,81 +53,89 @@
 - SessionManager：`onActionLog: TC.enrichAndQueue` + `executeInTrainerMode()`
 - App.tsx：BookOpen 按钮 → TrainerPanel 视图
 
-### v2 设计图景（AI 自主编程脚本）
+### v2 已实现（JS 脚本系统）
 
-#### 目标
-让 AI 探索时能自己编写、测试、确认可复用的 Sequence 脚本，而不是被动录制。
-
-#### 模块划分（松耦合，每个模块独立可测）
-
-**M1 — `sequence/types.ts`**（纯类型，零依赖）
-```
-SequenceSpec { name, description, params[], steps[] }
-StepSpec { type, selector?, value?, ms?, url?, direction?, pages? }
-SelectorSpec = string  // 格式: "text:xxx" | "aria:xxx" | "placeholder:xxx" | "css:xxx" | "role:xxx"
-StepType = click|input|input_enter|wait|navigate|scroll|send_keys
-StepResult { stepIndex, success, error? }
-```
-
-**M2 — `sequence/SequenceParser.ts`**（纯函数，零依赖）
-- `parse(xml): SequenceSpec | Error` — 解析 AI 输出的 XML
-- `serialize(seq): string` — 生成 XML 字符串
-- `applyParams(seq, params): SequenceSpec` — `{{param}}` 模板替换
-- XML 格式:
-  ```xml
-  <sequence name="apply_job" params="greeting">
-    <step type="click" selector="text:立即申请" />
-    <step type="input" selector="placeholder:打招呼" value="{{greeting}}" />
-    <step type="click" selector="text:发送" />
-  </sequence>
-  ```
-
-**M3 — `sequence/SequenceExecutor.ts`**（依赖抽象接口，不依赖 chrome API）
-- 接口：`PageActionSender { send(action, tabId, payload): Promise<unknown> }`
-- `execute(seq, params, tabId, sender, onStep?): Promise<StepResult[]>`
-- 通过 `execute_javascript` PAGE_CONTROL 在页面内查找元素并执行操作
-- 完全可 mock 测试
-
-**M4 — `TrainerTools.ts`**（AI 工具集，依赖 M2/M3 + TrainerClient）
-- `createTrainerTools(taskId): Record<string, PageAgentTool>`
-- 提供工具：
-  - `write_note(content)` — 写入笔记到当前 execution
-  - `write_sequence(xml)` — 解析并暂存序列到内存
-  - `exec_sequence(name, params)` — 执行序列，返回每步结果
-  - `finalize_sequence(name)` — 保存序列到 trainer server
-- 暂存序列在 module-level Map（同一次 execution 生命周期内有效）
-
-**M5 — server: `NoteStore.ts` + `SequenceStore.ts`**（文件存储，零依赖）
-- Note：存在 execution JSON 的 `notes[]` 字段
-- Sequence：`data/tasks/{id}/sequences/{id}.json`
-- API 新增：
-  - `POST /api/tasks/:id/executions/:eid/notes`
-  - `GET/POST /api/tasks/:id/sequences`
-  - `PUT /api/tasks/:id/sequences/:sid`
-
-**M6 — `SessionManager` 扩展**
-- `executeInTrainerMode` 在执行前注入 TrainerTools 到 agent（重建 agent with extraTools）
-- 执行结束后恢复原 agent
-
-**M7 — UI 更新**
-- TrainerPanel：任务可编辑（name/url/desc）
-- TrainerPanel detail：新增 Notes 标签页展示笔记
-- TrainerPanel detail：Sequences 列表（区别于录制生成的 Scripts）
-
-#### 数据流
-```
-AI 探索 → write_note (笔记积累)
-         → write_sequence (草稿序列写入内存)
-         → exec_sequence (测试，结果返回给AI)
-         → 修改再测试...
-         → finalize_sequence (存服务器)
-用户点击 → SequenceExecutor 回放
-```
+#### 核心变化：XML Sequence → JS Script
+- **`trainer/script/ScriptExecutor.ts`**：`execute(spec, params, tabId, sender)` → `ScriptRunResult`
+  - 脚本以 `new Function('page','params', code)()` 运行（sidepanel CSP 已加 `unsafe-eval`）
+  - **CSS-first 选择器**：`.class` / `#id` / `[attr]` 直接 querySelector，无需前缀
+  - **`getCleanHtml(scope?, limit=50000)`**：AI 用来发现真实 CSS class/id，去除 script/style/hash 类名
+  - **增强 click**：全 MouseEvent 序列（mouseover→mousedown→mouseup→click）
+  - **增强 input**：React/Vue 兼容原生 setter + 冒泡 input/change 事件
+- **`trainer/TrainerTools.ts`**：5 个工具 `write_note`, `write_script`, `exec_script`, `finalize_script`, `complete_training`
+  - `complete_training` REQUIRED 在 done 前调用，跳过则记录为 failed
+  - `module-level _completionStatus` → SessionManager 读取
+- **Trainer 服务器** (`packages/trainer/`)：AI 脚本存 `data/tasks/{id}/ai-scripts/`
+- **TrainerPanel**：AI Scripts 标签页展示 `TrainerScript[]`
 
 #### 关键约定
-- SelectorSpec 优先级：aria > placeholder > text > role > css（降级匹配）
 - 参数格式：`params="key1,key2"`，调用时 `params="key1=val1,key2=val2"`
-- note 工具在非训练模式下不加入 agent（通过 TrainerTools.createTrainerTools 按需注入）
+- `getCleanHtml()` 在 Phase 2 写脚本前先调用，得到真实选择器
+- note 工具只在训练模式注入（`createTrainerTools` 按需调用）
+
+### v3 后端控制浏览器架构（2026-05）
+
+**架构：** `Bash脚本 → POST /api/browser/cmd → BridgeServer(WS) → BridgeClient(Extension) → chrome.scripting.executeScript → 页面DOM`
+
+**新文件：**
+- `trainer/src/bridge/BridgeServer.ts`：WebSocket服务端，管理单个扩展连接，UUID pending map + 30s超时
+- `trainer/src/runner/PageJsBuilder.ts`：构建页面内执行的JS字符串（click/input/exists/getText/queryAll/scroll/getCleanHtml）
+- `trainer/src/runner/RemotePage.ts`：Node.js API，training脚本使用 `new RemotePage()` 控制浏览器
+- `trainer/src/runner/ScriptStore.ts`：脚本管理，保存到 `data/scripts/manifest.json` + `{id}.js`
+- `trainer/src/runner/ScriptRunner.ts`：`new Function` 执行保存的脚本
+- `extension/src/trainer/BridgeClient.ts`：background WS客户端，自动重连3s，处理 execute_js/navigate/screenshot/get_active_tab
+
+**API端点：**
+- `GET /api/bridge/status` → `{connected: bool}`
+- `POST /api/browser/cmd` → 转发命令到扩展
+- `GET/POST /api/scripts` → ScriptStore列表/保存
+- `GET/DELETE /api/scripts/:id` → 获取/删除
+- `POST /api/scripts/:id/run` → ScriptRunner执行
+
+**关键约定：**
+- `chrome.scripting.executeScript` 需要 `scripting` 权限（已加）
+- `world: 'MAIN'` 在页面JS上下文执行（可访问React/Vue状态）
+- TrainerPanel 侧栏 Scripts 视图：按 `category` 字段分组显示（带分组标题线），Run按钮有 idle/running/success/failed 状态
+- `train_in_back.md` 为完整使用文档
+- **navigate/refresh 前必须清 beforeunload**：`window.onbeforeunload = null` 先于导航，否则原生 Leave 弹窗会卡住（截图抓不到）。`RemotePage.navigate()` 和新增 `RemotePage.refresh()` 已内置此逻辑。
+- **重启 trainer 服务器**：运行根目录 `restart-trainer.bat`（杀 3002 端口进程 → 后台重启 → 等待就绪）。修改 RemotePage.ts / PageJsBuilder.ts 后必须重启才生效。Claude 可直接执行：`cmd /c C:\projects\page-agent1\page-agent\restart-trainer.bat`
+- `ScriptRunner` 的 `RunResult` 包含 `logs: string[]`，脚本用 `console.log` 输出，调用方从响应 logs 字段读取
+- 按钮是否禁用：用 `page.getAttr(sel, 'disabled')===null` 判断（比CSS `:not([disabled])` 可靠）
+- 所有输入统一用 `page.input()`，内部自动处理 React/Draft.js/contenteditable，禁止手写 JS 操作 DOM
+- **文件上传**用 `page.uploadFile(selector, localPath)`：Node.js 读文件→base64→DataTransfer 注入 `input[type=file]`，完全绕过 OS 对话框。selector 可指向触发按钮（自动向下/父层查找 file input）。已验证：今日头条封面 `.byte-btn-size-huge`
+- 清空输入框用 `page.clear()`（React nativeInputValueSetter+deleteContentBackward / contenteditable execCommand selectAll+delete）
+- 键盘组合键用 `page.sendKey(selector|null, combo)`，支持 Enter/Escape/Ctrl+A/Shift+Enter 等，来自 OpenFill page-controller
+- 下拉选择用 `page.select(selector, optionText)`
+- manifest.json `publishable:true` → 脚本需有 dryRun 模式，`const DRY_RUN = params.dryRun !== 'false'`
+- `ScriptMeta` 字段：`id/name/category/description/entryUrl/params/publishable/file/createdAt/updatedAt`
+- `RemotePage.eval(code)` → 执行任意浏览器JS（用于iframe操作等，比常规API更底层）
+- 微信公众号编辑器内容在 iframe 内，需 `page.eval()` 访问 `iframe.contentDocument.body`，用 `execCommand` 填写
+
+**脚本分类（category）：**
+- 知乎：`zhihu_publish.js`（已验证）params: title/content/coverPath/dryRun。封面：直接 uploadFile `.UploadPicture-input`（input[type=file]，无需点按钮），accept=jpeg/jpg/png。标题 `textarea.Input`，正文 `.public-DraftEditor-content`，发布 `button.Button--primary.Button--blue`
+- BOSS直聘：`boss_apply.js`（已验证）
+- 今日头条：`toutiao_publish.js`（已验证）params: title/content/coverPath/firstPublish/dryRun。封面：click `.article-cover-add` → uploadFile `.byte-btn-size-huge` → click `text:确定`。首发：`label.checkbot-item input[type=checkbox]` index=0（或中文includes均可），需正文≥100字。**中文在 eval() 字符串里完全正常**（ScriptStore UTF-8读写+JSON.stringify转义），之前报错原因是内容<100字触发弹窗被忽视
+- 微信公众号：`wechat_oa_publish.js`（训练脚本 wechat_oa_publish.ts，待运行验证）
+- WhatsApp：`whatsapp_send.js`（训练脚本 whatsapp_send.ts，用 data-testid 选择器，待运行验证）
+- 搜狐号：`sohu_publish.js`（已验证 2026-05-25）params: title/content/coverPath/dryRun。直达URL `https://mp.sohu.com/mpfe/v4/contentManagement/news/addarticle?contentStatus=1`。标题 `input[placeholder="请输入标题（5-72字）"]`。正文 Quill `div.ql-editor`，page.inputAfterClear。封面：click `.upload-file.mp-upload`（开弹窗+动态创建file input）→ wait 500ms → uploadFile `.upload-button input[type=file]` → wait 2s → eval click `.dialog-title h3`[1]（本地上传标签）→ wait 500ms → click `p.button.positive-button` → wait 3s。发布按钮 `li.publish-report-btn.active`
+- CSDN：`csdn_publish.js`（已验证 2026-05-25）params: title/content/coverPath/dryRun。标题 `textarea#txtTitle`。正文 CKEditor 在 `iframe.cke_wysiwyg_frame` 内，用 page.eval() + execCommand。封面：uploadFile `input.el_mcm-upload__input`（file input 已在DOM）→ wait 1.5s → click `.vicp-operate-btn`（裁剪弹窗确认上传）→ wait 2s。发布按钮 `text:发布博客`。等 3000ms 初始化
+- 知乎：Draft.js 长文本问题修复：用 `page.pasteText()` 替代 `page.input()`，底层用 ClipboardEvent paste（Draft.js 原生处理）。execCommand('insertText') 会截断长字符串。已验证 1072 字、10段全部正确插入（2026-05-25）
+- `RemotePage.pasteText(selector, value)`：新增方法，用 ClipboardEvent 注入文本，专用于 Draft.js 等编辑器长文本输入。`PageJsBuilder.buildPasteTextJS()` 对应实现
+
+**发布平台配置（权威数据源）：**
+- `packages/trainer/data/publish_platforms.json` — 所有发布平台的唯一配置文件
+  - 字段：`id / name / scriptId / languages / hasCover / exclusive / enabled`
+  - **只有 `enabled: true` 的平台才会被 gen_tool 发布系统使用**
+  - gen_tool (`C:\projects\story2.0\gen_tool`) 在启动时从此文件读取 PLATFORMS（`PublishMediaStruct.ts`）
+  - gen_tool 前端也通过 `/api/publish-media/platforms` API 动态加载，无需改前端代码
+  - 新增/下线平台：只需修改此 JSON，重启 gen_tool 即可生效
+  - 当前平台：toutiao(zh,exclusive) / zhihu(zh) / sohu(zh) / csdn(zh) / medium(en, enabled=false 待脚本完成)
+
+**待探索（尚未有脚本）：**
+- 微信公众号、WhatsApp — 必须先用 curl 手动探索 DOM，验证选择器后才能写脚本
+- Medium — 编辑器加载极慢（需1分钟+），暂跳过；脚本完成后在 publish_platforms.json 改 enabled:true
+
+**禁止：** 猜选择器直接写脚本。必须先 navigate → getCleanHtml → exists 验证 → 截图确认 → 走完全流程 → 才写 .ts 训练脚本。
 
 ## 豆包网络搜索工具（2026-03）
 - 核心客户端：`packages/core/src/utils/doubao/DoubaoClient.ts`（静态方法）, `DoubaoConfig.ts`（setApiKey/getApiKey）, `DoubaoTypes.ts`
@@ -232,3 +240,7 @@ await OrderTool.create({
   ...
 });
 ```
+
+## 仓库卫生（2026-06）
+- 运行时产物不入 git：`/data/`、`packages/data/`、`packages/trainer/data/{screenshots,test,tasks,*.png,*.html}` 均已 gitignore
+- `packages/trainer/data/scripts/`（训练产出脚本）和 `publish_platforms.json` 保留入库

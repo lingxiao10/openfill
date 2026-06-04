@@ -8,13 +8,13 @@
 import { IncomingMessage, Server } from 'node:http'
 import { WebSocket, WebSocketServer } from 'ws'
 
-type PendingRequest = {
+interface PendingRequest {
 	resolve: (value: unknown) => void
 	reject: (reason: Error) => void
 	timer: ReturnType<typeof setTimeout>
 }
 
-const TIMEOUT_MS = 30_000
+const TIMEOUT_MS = 120_000 // 2min — large video uploads need time
 
 export class BridgeServer {
 	private wss: WebSocketServer | null = null
@@ -26,7 +26,7 @@ export class BridgeServer {
 	}
 
 	attach(server: Server): void {
-		this.wss = new WebSocketServer({ server, path: '/ws' })
+		this.wss = new WebSocketServer({ server, path: '/ws', maxPayload: 200 * 1024 * 1024 })
 		this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
 			console.log(`[Bridge] Extension connected from ${req.socket.remoteAddress}`)
 			// Only one client at a time

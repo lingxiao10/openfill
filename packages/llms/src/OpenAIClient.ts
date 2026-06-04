@@ -58,8 +58,19 @@ export class OpenAIClient implements LLMClient {
 		} catch (error: unknown) {
 			const isAbortError = (error as any)?.name === 'AbortError'
 			const errorMessage = isAbortError ? 'Network request aborted' : 'Network request failed'
-			if (!isAbortError) console.error(error)
-			throw new InvokeError(InvokeErrorType.NETWORK_ERROR, errorMessage, error)
+			if (!isAbortError) {
+				console.error('[OpenFill] Fetch failed:', {
+					url: `${this.config.baseURL}/chat/completions`,
+					model: this.config.model,
+					messageCount: messages.length,
+					error,
+				})
+			}
+			throw new InvokeError(
+				InvokeErrorType.NETWORK_ERROR,
+				`${errorMessage} | URL: ${this.config.baseURL}/chat/completions | model: ${this.config.model}`,
+				error
+			)
 		}
 
 		// 3. Handle HTTP errors

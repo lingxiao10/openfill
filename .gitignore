@@ -47,3 +47,12 @@ packages/extension/tsconfig.test.json
 .cursor
 .gemini
 CLAUDE.md
+
+# Runtime data & training artifacts (generated at runtime, never commit)
+/data/
+packages/data/
+packages/trainer/data/screenshots/
+packages/trainer/data/test/
+packages/trainer/data/tasks/
+packages/trainer/data/*.png
+packages/trainer/data/*.html

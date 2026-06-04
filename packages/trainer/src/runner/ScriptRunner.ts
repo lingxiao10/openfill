@@ -12,6 +12,7 @@ export interface RunResult {
 	success: boolean
 	error?: string
 	durationMs: number
+	logs: string[]
 }
 
 export class ScriptRunner {
@@ -28,24 +29,40 @@ export class ScriptRunner {
 		const code = ScriptStore.getCode(scriptId)
 		if (!code) throw new Error(`Script file missing: ${scriptId}`)
 
+		const logs: string[] = []
+		const scriptConsole = {
+			log: (...args: unknown[]) => {
+				const line = args.map(String).join(' ')
+				logs.push(line)
+				console.log('[script]', line)
+			},
+			error: (...args: unknown[]) => {
+				const line = args.map(String).join(' ')
+				logs.push('[error] ' + line)
+				console.error('[script:error]', line)
+			},
+		}
+
 		const start = Date.now()
 		try {
 			if (meta.entryUrl) {
 				await this.page.navigate(meta.entryUrl)
 				await this.page.wait(1000)
 			}
-			// Build a module from the script code and execute it
+			// eslint-disable-next-line no-new-func, @typescript-eslint/no-implied-eval
 			const fn = new Function(
 				'page',
 				'params',
 				'runner',
-				`"use strict";\nreturn (async()=>{\n${code}\n})()`,
+				'console',
+				`"use strict";\nreturn (async()=>{\n${code}\n})()`
 			)
-			await fn(this.page, params, this)
-			return { scriptId, success: true, durationMs: Date.now() - start }
+			await fn(this.page, params, this, scriptConsole)
+			return { scriptId, success: true, durationMs: Date.now() - start, logs }
 		} catch (err) {
 			const error = err instanceof Error ? err.message : String(err)
-			return { scriptId, success: false, error, durationMs: Date.now() - start }
+			logs.push('[error] ' + error)
+			return { scriptId, success: false, error, durationMs: Date.now() - start, logs }
 		}
 	}
 }

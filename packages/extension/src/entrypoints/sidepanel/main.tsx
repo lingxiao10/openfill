@@ -2,16 +2,22 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 
 import { logStartupError } from '@/lib/startupLog'
+
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 import '@/assets/index.css'
 
+const NOISE_PATTERNS = ['ResizeObserver loop']
+const isNoise = (msg: string) => NOISE_PATTERNS.some((p) => msg.includes(p))
+
 // Capture global JS errors
 window.addEventListener('error', (e) => {
+	const msg = e.message || 'Unknown error'
+	if (isNoise(msg)) return
 	logStartupError({
 		type: 'error',
-		message: e.message || 'Unknown error',
+		message: msg,
 		stack: e.error?.stack,
 		detail: { filename: e.filename, lineno: e.lineno, colno: e.colno },
 	})
@@ -19,9 +25,11 @@ window.addEventListener('error', (e) => {
 
 // Capture unhandled promise rejections
 window.addEventListener('unhandledrejection', (e) => {
+	const msg = String(e.reason?.message ?? e.reason ?? 'Unhandled rejection')
+	if (isNoise(msg)) return
 	logStartupError({
 		type: 'unhandledrejection',
-		message: String(e.reason?.message ?? e.reason ?? 'Unhandled rejection'),
+		message: msg,
 		stack: e.reason?.stack,
 	})
 })

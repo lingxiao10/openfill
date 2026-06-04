@@ -9,10 +9,13 @@ import {
 	InputGroupTextarea,
 } from '@/components/ui/input-group'
 import { downloadAgentLogs } from '@/lib/downloadLogs'
-import { hasStartupErrors, onStartupError } from '@/lib/startupLog'
+import { getStartupLog, hasStartupErrors, onStartupError } from '@/lib/startupLog'
+import { bridgeClient } from '@/trainer/BridgeClient'
 import { runScript } from '@/trainer/ScriptRunner'
 import { execute as executeTrainerScript } from '@/trainer/script/ScriptExecutor'
 import type { AutomationScript, TrainerScript } from '@/trainer/types'
+import { useDevServerStatus } from '@/utils/useDevServerStatus'
+import { useTrainerStatus } from '@/utils/useTrainerStatus'
 
 import { useSessionManager } from '../../agent/useSessionManager'
 import { Trans } from '../../utils/Trans'
@@ -55,10 +58,17 @@ export default function App() {
 	} = useSessionManager()
 
 	const hasInitErrors = useSyncExternalStore(onStartupError, hasStartupErrors)
+	const devServerStatus = useDevServerStatus()
+	const trainerStatus = useTrainerStatus()
 
 	// Re-render when language changes
 	const [, setLangTick] = useState(0)
 	useEffect(() => Trans.subscribe(() => setLangTick((t) => t + 1)), [])
+
+	// Start bridge client (trainer remote control) from sidepanel — more reliable than SW
+	useEffect(() => {
+		bridgeClient.start()
+	}, [])
 
 	const status = activeSession?.status ?? 'idle'
 	const history = activeSession?.history ?? []
@@ -97,6 +107,43 @@ export default function App() {
 			e.preventDefault()
 			handleSubmit()
 		}
+	}
+
+	// --- Startup error panel ---
+	if (hasInitErrors) {
+		const errs = getStartupLog()
+		return (
+			<div className="flex flex-col h-screen bg-background text-foreground">
+				<header className="flex items-center justify-between border-b px-3 py-2">
+					<span className="text-sm font-medium text-destructive">⚠️ OpenFill 启动错误</span>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						onClick={() => window.location.reload()}
+						title="重新加载"
+					>
+						↺
+					</Button>
+				</header>
+				<div className="flex-1 overflow-y-auto p-4 space-y-3">
+					{errs.map((e, i) => (
+						<div key={i} className="rounded-md border border-destructive/40 bg-destructive/10 p-3">
+							<div className="text-xs font-semibold text-destructive mb-1 uppercase">{e.type}</div>
+							<div className="text-sm text-foreground font-mono break-all">{e.message}</div>
+							{e.stack && (
+								<pre className="mt-2 text-[10px] text-muted-foreground overflow-x-auto whitespace-pre-wrap">
+									{e.stack.slice(0, 600)}
+								</pre>
+							)}
+						</div>
+					))}
+					<p className="text-xs text-muted-foreground pt-2">
+						如果扩展加载了错误的开发服务器，请确认 WXT 开发服务器运行在 port
+						3000，或改用正式构建（chrome-mv3/chrome-mv3）。
+					</p>
+				</div>
+			</div>
+		)
 	}
 
 	// --- View routing ---
@@ -227,6 +274,22 @@ export default function App() {
 					</Button>
 				</div>
 			</header>
+
+			{/* Connection status bar */}
+			<div className="flex items-center gap-3 border-b px-3 py-1 bg-muted/20 text-[11px] font-mono">
+				<span>
+					<span className="text-muted-foreground">WXT:3000 </span>
+					<span className={devServerStatus === 'connected' ? 'text-green-500' : 'text-red-400'}>
+						{devServerStatus === 'connected' ? '● 已连接' : '● 未连接'}
+					</span>
+				</span>
+				<span>
+					<span className="text-muted-foreground">Trainer:3002 </span>
+					<span className={trainerStatus === 'connected' ? 'text-green-500' : 'text-red-400'}>
+						{trainerStatus === 'connected' ? '● 已连接' : '● 未连接'}
+					</span>
+				</span>
+			</div>
 
 			{/* Session Tabs */}
 			<SessionTabs

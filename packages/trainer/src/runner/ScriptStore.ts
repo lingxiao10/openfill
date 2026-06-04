@@ -4,13 +4,7 @@
  * Manifest: data/scripts/manifest.json
  * Script files: data/scripts/{id}.js
  */
-import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	unlinkSync,
-	writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const DATA_DIR = join(process.cwd(), 'data', 'scripts')
@@ -20,8 +14,10 @@ export interface ScriptMeta {
 	id: string
 	name: string
 	description: string
+	category?: string
 	entryUrl?: string
 	params: string[]
+	publishable?: boolean
 	file: string
 	createdAt: string
 	updatedAt: string
@@ -63,10 +59,7 @@ export const ScriptStore = {
 		return readFileSync(file, 'utf-8')
 	},
 
-	save(
-		meta: Omit<ScriptMeta, 'file' | 'createdAt' | 'updatedAt'>,
-		code: string,
-	): ScriptMeta {
+	save(meta: Omit<ScriptMeta, 'file' | 'createdAt' | 'updatedAt'>, code: string): ScriptMeta {
 		ensureDir()
 		const now = new Date().toISOString()
 		const manifest = readManifest()

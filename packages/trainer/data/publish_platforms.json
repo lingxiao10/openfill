@@ -1,0 +1,47 @@
+[
+  {
+    "id": "toutiao",
+    "name": "今日头条",
+    "scriptId": "toutiao_publish",
+    "languages": ["zh"],
+    "hasCover": true,
+    "exclusive": true,
+    "enabled": true
+  },
+  {
+    "id": "zhihu",
+    "name": "知乎",
+    "scriptId": "zhihu_publish",
+    "languages": ["zh"],
+    "hasCover": true,
+    "exclusive": false,
+    "enabled": true
+  },
+  {
+    "id": "sohu",
+    "name": "搜狐号",
+    "scriptId": "sohu_publish",
+    "languages": ["zh"],
+    "hasCover": true,
+    "exclusive": false,
+    "enabled": true
+  },
+  {
+    "id": "csdn",
+    "name": "CSDN",
+    "scriptId": "csdn_publish",
+    "languages": ["zh"],
+    "hasCover": true,
+    "exclusive": false,
+    "enabled": true
+  },
+  {
+    "id": "medium",
+    "name": "Medium",
+    "scriptId": "medium_publish",
+    "languages": ["en"],
+    "hasCover": false,
+    "exclusive": false,
+    "enabled": true
+  }
+]

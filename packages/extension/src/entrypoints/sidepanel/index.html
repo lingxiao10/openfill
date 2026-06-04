@@ -5,6 +5,37 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="icon" type="image/svg+xml" href="/assets/openfill-logo.svg" />
 		<title>OpenFill</title>
+		<!-- Pre-module error capture: catches errors before React initializes -->
+		<script>
+			window.__preErrors = [];
+			function __showFallbackError(msg, detail) {
+				window.__preErrors.push({ msg, detail });
+				var root = document.getElementById('root');
+				if (!root) return;
+				root.innerHTML =
+					'<div style="padding:20px;font-family:monospace;font-size:13px;color:#dc2626;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;margin:16px;white-space:pre-wrap;word-break:break-all">' +
+					'<b style="font-size:15px">⚠️ OpenFill 启动错误</b>\n\n' +
+					msg + (detail ? '\n\n' + detail : '') +
+					'\n\n<span style="color:#6b7280;font-size:11px">提示：如果刚更新了扩展，请尝试重新加载（chrome://extensions → 刷新）</span>' +
+					'</div>';
+			}
+			window.addEventListener('error', function(e) {
+				// Ignore harmless browser noise
+				var msg = e.message || '';
+				if (msg.indexOf('ResizeObserver') !== -1) return;
+				// Module load failures (404, parse error, etc.) — only report if no filename means inline/module error
+				__showFallbackError(
+					msg + (e.filename ? '\n文件: ' + e.filename + ':' + e.lineno : ''),
+					e.error ? e.error.stack : ''
+				);
+			});
+			window.addEventListener('unhandledrejection', function(e) {
+				var msg = e.reason instanceof Error ? e.reason.message : String(e.reason || 'Unhandled rejection');
+				if (msg.indexOf('ResizeObserver') !== -1) return;
+				var stack = e.reason instanceof Error ? e.reason.stack : '';
+				__showFallbackError('Promise 错误: ' + msg, stack);
+			});
+		</script>
 	</head>
 	<body>
 		<div id="root"></div>

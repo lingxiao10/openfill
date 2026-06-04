@@ -15,6 +15,7 @@ export default defineConfig({
 	srcDir: 'src',
 	modules: ['@wxt-dev/module-react'],
 	webExt: {
+		disabled: process.env.WXT_HEADLESS === '1',
 		chromiumProfile: chromeProfile,
 		keepProfileChanges: true,
 		chromiumArgs: ['--hide-crash-restore-bubble'],
@@ -56,14 +57,7 @@ export default defineConfig({
 		default_locale: 'en',
 		name: '__MSG_extName__',
 		description: '__MSG_extDescription__',
-		permissions: [
-			'tabs',
-			'tabGroups',
-			'sidePanel',
-			'storage',
-			'scripting',
-			...(isDebuggerMode ? ['debugger'] : []),
-		],
+		permissions: ['tabs', 'tabGroups', 'sidePanel', 'storage', 'scripting', 'debugger'],
 		host_permissions: ['<all_urls>'],
 		icons: {
 			16: 'assets/icon-16.png',
@@ -83,9 +77,9 @@ export default defineConfig({
 		side_panel: {
 			default_path: 'sidepanel/index.html',
 		},
-		// Allow new Function() / eval in sidepanel for AI script execution
 		content_security_policy: {
-			extension_pages: "script-src 'self' 'unsafe-eval'; object-src 'self'",
+			extension_pages:
+				"script-src 'self'; object-src 'self'; connect-src 'self' https://* http://localhost:3000 ws://localhost:3000 http://127.0.0.1:3000 ws://127.0.0.1:3000 http://localhost:3002 ws://localhost:3002 http://127.0.0.1:3002 ws://127.0.0.1:3002",
 		},
 	},
 })

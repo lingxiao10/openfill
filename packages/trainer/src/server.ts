@@ -1,11 +1,11 @@
-import type { Server } from 'node:http'
 import cors from 'cors'
 import express from 'express'
+import type { Server } from 'node:http'
 
+import * as tm from './TaskManager.js'
 import { bridge } from './bridge/BridgeServer.js'
 import { ScriptRunner } from './runner/ScriptRunner.js'
 import { ScriptStore } from './runner/ScriptStore.js'
-import * as tm from './TaskManager.js'
 import type {
 	AddLogsPayload,
 	CompleteExecutionPayload,
@@ -20,7 +20,7 @@ export function attachBridge(httpServer: Server): void {
 export function createServer() {
 	const app = express()
 	app.use(cors())
-	app.use(express.json({ limit: '10mb' }))
+	app.use(express.json({ limit: '200mb' }))
 
 	// ── Tasks ──────────────────────────────────────────────────────────────────
 
@@ -234,7 +234,10 @@ export function createServer() {
 	})
 
 	app.post('/api/scripts', (req, res) => {
-		const { meta, code } = req.body as { meta: Parameters<typeof ScriptStore.save>[0]; code: string }
+		const { meta, code } = req.body as {
+			meta: Parameters<typeof ScriptStore.save>[0]
+			code: string
+		}
 		const saved = ScriptStore.save(meta, code)
 		res.json(saved)
 	})

@@ -142,5 +142,7 @@
   "bridge_success":            { "en": "Success",                         "zh": "成功" },
   "bridge_failed":             { "en": "Failed",                          "zh": "失败" },
   "bridge_no_scripts":         { "en": "No scripts yet",                  "zh": "暂无脚本" },
-  "bridge_offline":            { "en": "Trainer server offline",          "zh": "训练服务器未启动" }
+  "bridge_offline":            { "en": "Trainer server offline",          "zh": "训练服务器未启动" },
+  "bridge_dry_run":            { "en": "Test Fill",                       "zh": "试填写" },
+  "bridge_publish":            { "en": "Publish",                         "zh": "发布" }
 }

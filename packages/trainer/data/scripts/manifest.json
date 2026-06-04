@@ -1,0 +1,185 @@
+{
+  "scripts": [
+    {
+      "id": "facebook_post",
+      "name": "Facebook 发帖（文字+图片+视频）",
+      "category": "Facebook",
+      "description": "在 Facebook 主页发布一条帖子，支持纯文字、图片或视频",
+      "entryUrl": "https://www.facebook.com/",
+      "params": [
+        {
+          "name": "content",
+          "label": "正文",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "name": "mediaPath",
+          "label": "媒体路径",
+          "type": "text",
+          "required": false
+        }
+      ],
+      "publishable": true,
+      "file": "facebook_post.js",
+      "createdAt": "2026-05-28T16:22:37.593Z",
+      "updatedAt": "2026-05-28T16:29:28.028Z"
+    },
+    {
+      "id": "csdn_publish",
+      "name": "CSDN 发布博客",
+      "category": "CSDN",
+      "description": "发布博客文章，支持标题、正文、封面图",
+      "entryUrl": "https://mp.csdn.net/mp_blog/creation/editor",
+      "params": [
+        {
+          "name": "title",
+          "label": "标题",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "content",
+          "label": "正文",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "name": "coverPath",
+          "label": "封面路径",
+          "type": "text",
+          "required": false
+        }
+      ],
+      "publishable": true,
+      "file": "csdn_publish.js",
+      "createdAt": "2026-05-21T05:16:50.324Z",
+      "updatedAt": "2026-05-25T05:30:17.684Z"
+    },
+    {
+      "id": "sohu_publish",
+      "name": "搜狐号发布",
+      "category": "搜狐号",
+      "description": "发布图文文章，支持标题、正文、封面图",
+      "entryUrl": "https://mp.sohu.com/",
+      "params": [
+        {
+          "name": "title",
+          "label": "标题",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "content",
+          "label": "正文",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "name": "coverPath",
+          "label": "封面路径",
+          "type": "text",
+          "required": false
+        }
+      ],
+      "publishable": true,
+      "file": "sohu_publish.js",
+      "createdAt": "2026-05-21T05:16:40.165Z",
+      "updatedAt": "2026-05-25T05:30:36.813Z"
+    },
+    {
+      "id": "_test_uploadFile",
+      "name": "test",
+      "category": "test",
+      "description": "test",
+      "entryUrl": "",
+      "params": [],
+      "publishable": false,
+      "file": "_test_uploadFile.js",
+      "createdAt": "2026-05-21T03:55:29.504Z",
+      "updatedAt": "2026-05-21T03:55:29.504Z"
+    },
+    {
+      "id": "toutiao_publish",
+      "name": "今日头条发布",
+      "category": "今日头条",
+      "description": "发布图文文章，支持标题、正文、封面图",
+      "entryUrl": "https://mp.toutiao.com/profile_v4/graphic/publish",
+      "params": [
+        {
+          "name": "title",
+          "label": "标题",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "content",
+          "label": "正文",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "name": "coverPath",
+          "label": "封面路径",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "firstPublish",
+          "label": "头条首发",
+          "type": "checkbox",
+          "required": false
+        }
+      ],
+      "publishable": true,
+      "file": "toutiao_publish.js",
+      "createdAt": "2026-05-21T03:50:14.957Z",
+      "updatedAt": "2026-05-21T10:06:48.736Z"
+    },
+    {
+      "id": "zhihu_publish",
+      "name": "知乎专栏发布",
+      "category": "知乎",
+      "description": "发布知乎专栏文章，支持标题、正文、封面图",
+      "entryUrl": "https://zhuanlan.zhihu.com/write",
+      "params": [
+        {
+          "name": "title",
+          "label": "标题",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "content",
+          "label": "正文",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "name": "coverPath",
+          "label": "封面路径",
+          "type": "text",
+          "required": false
+        }
+      ],
+      "publishable": true,
+      "file": "zhihu_publish.js",
+      "createdAt": "2026-05-21T00:00:00.000Z",
+      "updatedAt": "2026-05-25T05:31:02.786Z"
+    },
+    {
+      "id": "boss_apply",
+      "name": "自动投递",
+      "category": "BOSS直聘",
+      "description": "逐个点击立即沟通，处理留在此页弹窗，用href跟踪已投递职位避免重复",
+      "entryUrl": "https://www.zhipin.com/web/geek/jobs",
+      "params": [
+        "maxJobs",
+        "waitMs"
+      ],
+      "file": "boss_apply.js",
+      "createdAt": "2026-05-21T00:00:00.000Z",
+      "updatedAt": "2026-05-21T00:00:00.000Z"
+    }
+  ]
+}

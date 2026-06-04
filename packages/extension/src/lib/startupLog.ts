@@ -15,8 +15,17 @@ const entries: StartupLogEntry[] = []
 const listeners: (() => void)[] = []
 
 export function logStartupError(entry: Omit<StartupLogEntry, 'time'>): void {
-	entries.push({ ...entry, time: new Date().toISOString() })
-	console.log('[StartupLog]', entry.type, entry.message, entry.stack ?? '')
+	const full = { ...entry, time: new Date().toISOString() }
+	entries.push(full)
+	console.error('[StartupLog]', entry.type, entry.message, entry.stack ?? '')
+	// Persist to sessionStorage so errors survive React re-renders
+	try {
+		const stored = JSON.parse(sessionStorage.getItem('__openfill_errors') ?? '[]')
+		stored.push(full)
+		sessionStorage.setItem('__openfill_errors', JSON.stringify(stored))
+	} catch {
+		/* ignore */
+	}
 	listeners.forEach((fn) => fn())
 }
 
